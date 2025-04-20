@@ -10,6 +10,10 @@
 - 推薦熱股：熱門股票名稱與價格變動
 - 熱門板塊入口：展示五個分類按鈕，連結到「Sector Radar」頁
 
+## 線上演示
+
+訪問我們的線上演示網站：[HSI深度分析平台](https://hsi-deep-site-lmy3jo2pb-ambers-projects-242e116b.vercel.app)
+
 ## 安裝與運行
 
 ### 環境要求
@@ -49,7 +53,17 @@
 - **前端框架**：Next.js 14
 - **語言**：TypeScript
 - **樣式**：Tailwind CSS
-- **部署**：Vercel (推薦)
+- **圖表庫**：Recharts
+- **部署**：Vercel
+
+## 部署指南
+
+本專案已配置為可以在 Vercel 上輕鬆部署：
+
+1. 安裝 Vercel CLI: `npm install -g vercel`
+2. 登入 Vercel: `vercel login`
+3. 在專案根目錄執行: `vercel`
+4. 部署到生產環境: `vercel --prod`
 
 ## 頁面結構
 
