@@ -12,7 +12,7 @@
 
 ## 線上演示
 
-訪問我們的線上演示網站：[HSI深度分析平台](https://hsi-deep-site-lmy3jo2pb-ambers-projects-242e116b.vercel.app)
+訪問我們的線上演示網站：[HSI深度分析平台](https://hsi-deep-site-cscopub9d-ambers-projects-242e116b.vercel.app)
 
 ## 安裝與運行
 
@@ -64,6 +64,13 @@
 2. 登入 Vercel: `vercel login`
 3. 在專案根目錄執行: `vercel`
 4. 部署到生產環境: `vercel --prod`
+
+## 常見問題解決
+
+如果部署時出現「Module not found: Can't resolve 'recharts'」錯誤：
+1. 確認 recharts 已安裝: `npm install --save recharts`
+2. 檢查 package.json 中是否有 recharts 依賴
+3. 使用 `--force` 參數重新部署: `vercel --prod --force`
 
 ## 頁面結構
 
