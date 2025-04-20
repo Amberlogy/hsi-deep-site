@@ -29,7 +29,6 @@ import {
 
 import { format } from "d3-format";
 import { timeFormat } from "d3-time-format";
-import { useSize } from 'react-use';
 import type { ChartDataPoint } from '@/data/fakeChartData';
 
 // 圖表設定類型
@@ -75,7 +74,24 @@ const volumeFormat = format(".0s");
 // 主圖表組件
 const OverviewChart: React.FC<OverviewChartProps> = ({ data, settings }) => {
   // 圖表容器引用與大小計算
-  const [containerRef, { width, height }] = useSize();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+
+  // 測量容器大小
+  useEffect(() => {
+    if (containerRef.current) {
+      const resizeObserver = new ResizeObserver(entries => {
+        const { width } = entries[0].contentRect;
+        setDimensions({ width, height: 600 });
+      });
+      
+      resizeObserver.observe(containerRef.current);
+      
+      return () => {
+        resizeObserver.disconnect();
+      };
+    }
+  }, []);
 
   // 轉換數據格式
   const chartData = data.map((d) => ({
@@ -148,7 +164,7 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ data, settings }) => {
   const showEMA = settings.mainIndicator === 'ema';
 
   // 定義成交量柱顏色
-  const volumeColorFunction = (d: any) => {
+  const volumeColor = (d: any) => {
     return d.close >= d.open ? chartColors.volumeUp : chartColors.volumeDown;
   };
 
@@ -161,8 +177,10 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ data, settings }) => {
     widthRatio: 0.6,
   };
 
+  const { width } = dimensions;
+
   // 如果容器尺寸無效，則返回空容器
-  if (!width) return <div ref={containerRef} className="w-full h-[600px] bg-[#0D1037]" />;
+  if (!width) return <div className="w-full h-[600px] bg-[#0D1037]"></div>;
 
   return (
     <div ref={containerRef} className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden">
@@ -196,8 +214,7 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ data, settings }) => {
           {settings.chartType === 'bar' && (
             <BarSeries 
               yAccessor={(d: any) => d.close} 
-              fillStyle={volumeColorFunction} 
-              strokeStyle={volumeColorFunction} 
+              strokeStyle="#000000"
             />
           )}
           {settings.chartType === 'line' && (
@@ -217,12 +234,12 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ data, settings }) => {
           )}
           {settings.chartType === 'ohlc' && (
             <OHLCSeries 
-              stroke={(d: any) => d.close >= d.open ? chartColors.upColor : chartColors.downColor} 
+              yAccessor={(d: any) => ({ open: d.open, high: d.high, low: d.low, close: d.close })}
             />
           )}
           {settings.chartType === 'hlc' && (
             <OHLCSeries 
-              stroke={(d: any) => d.close >= d.open ? chartColors.upColor : chartColors.downColor} 
+              yAccessor={(d: any) => ({ open: d.open, high: d.high, low: d.low, close: d.close })}
             />
           )}
 
@@ -290,7 +307,14 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ data, settings }) => {
 
             <RSISeries
               yAccessor={rsiCalculator.accessor()}
-              strokeStyle={chartColors.rsiLine}
+              strokeStyle={{
+                line: chartColors.rsiLine,
+                top: "#8A0000",
+                middle: "#000000",
+                bottom: "#0000A5",
+                outsideThreshold: "rgba(255, 0, 0, 0.2)",
+                insideThreshold: "rgba(0, 0, 255, 0.2)"
+              }}
             />
 
             <EdgeIndicator
@@ -320,11 +344,14 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ data, settings }) => {
 
             <MACDSeries
               yAccessor={macdCalculator.accessor()}
-              options={macdCalculator.options()}
-              fillStyle={(d: any) => d.macdHistogram >= 0 ? chartColors.macdHistogramUp : chartColors.macdHistogramDown}
+              {...macdCalculator.options()}
               strokeStyle={{
                 macd: chartColors.macdLine,
                 signal: chartColors.macdSignalLine,
+                zero: "#000000"
+              }}
+              fillStyle={{
+                divergence: "rgba(38, 166, 154, 0.5)"
               }}
             />
 
@@ -370,8 +397,8 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ data, settings }) => {
 
             <BarSeries
               yAccessor={(d: any) => d.volume}
-              fillStyle={volumeColorFunction}
-              strokeStyle={volumeColorFunction}
+              fillStyle={chartColors.volumeUp}
+              strokeStyle="#000000"
             />
 
             <EdgeIndicator
