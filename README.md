@@ -12,7 +12,7 @@
 
 ## 線上演示
 
-訪問我們的線上演示網站：[HSI深度分析平台](https://hsi-deep-site-cscopub9d-ambers-projects-242e116b.vercel.app)
+訪問我們的線上演示網站：[HSI深度分析平台](https://hsi-deep-site-6wboed42h-ambers-projects-242e116b.vercel.app)
 
 ## 安裝與運行
 
@@ -72,6 +72,25 @@
 1. 確認 recharts 已安裝: `npm install --save recharts`
 2. 檢查 package.json 中是否有 recharts 依賴
 3. 使用 `--force` 參數重新部署: `vercel --prod --force`
+4. 添加 vercel.json 配置文件，自定義安裝命令:
+   ```json
+   {
+     "version": 2,
+     "builds": [
+       {
+         "src": "package.json",
+         "use": "@vercel/next",
+         "config": {
+           "installCommand": "npm install --force"
+         }
+       }
+     ]
+   }
+   ```
+5. 在 next.config.js 中添加 transpilePackages 配置:
+   ```js
+   transpilePackages: ['recharts']
+   ```
 
 ## 頁面結構
 
