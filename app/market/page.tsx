@@ -1,12 +1,19 @@
 'use client';
 
-// 市場總覽頁面 - 提供金融市場資訊與互動式圖表
-// 輸入: 無
-// 輸出: 市場總覽頁面，含K線圖、RSI、MACD、Volume指標
+// 市場頁面 - 展示專業金融圖表、市場數據與分析
+// 輸入: 用戶選項和互動
+// 輸出: 動態金融圖表與市場數據
 
-import React, { useState, useEffect } from 'react';
-import OverviewChart, { ChartSettings } from '@/components/Chart/OverviewChart';
-import fakeChartData from '@/data/fakeChartData';
+import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
+import { getFakeChartData } from '@/data/fakeChartData';
+import type { ChartSettings } from '@/components/Chart/OverviewChart';
+
+// 客戶端動態導入圖表組件，禁用SSR
+const OverviewChart = dynamic(
+  () => import('@/components/Chart/OverviewChart'),
+  { ssr: false }
+);
 
 // 圖表類型選項
 const chartTypes = [
@@ -57,7 +64,7 @@ const subChartOptions = [
   { value: 'Stochastic', label: '隨機指標' },
 ];
 
-// 市場總覽頁面組件
+// 市場頁面組件 - 客戶端組件
 export default function MarketPage() {
   // 圖表設定狀態
   const [chartSettings, setChartSettings] = useState<ChartSettings>({
@@ -245,7 +252,7 @@ export default function MarketPage() {
         
         {/* 圖表顯示區域 */}
         <div className="mt-6">
-          <OverviewChart data={fakeChartData} settings={chartSettings} />
+          <OverviewChart data={getFakeChartData()} settings={chartSettings} />
         </div>
         
         {/* 市場摘要資訊 */}

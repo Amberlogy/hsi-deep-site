@@ -1,8 +1,10 @@
+'use client';
+
 // 專業金融圖表元件 - 支援多種圖表類型和技術指標
 // 輸入: 圖表設定與資料
 // 輸出: 互動式金融圖表
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ChartCanvas,
   Chart,
@@ -73,25 +75,16 @@ const volumeFormat = format(".0s");
 
 // 主圖表組件
 const OverviewChart: React.FC<OverviewChartProps> = ({ data, settings }) => {
-  // 圖表容器引用與大小計算
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-
-  // 測量容器大小
+  // 客戶端渲染檢查
+  const [isClient, setIsClient] = useState(false);
+  
+  // 在客戶端環境中設置標誌
   useEffect(() => {
-    if (containerRef.current) {
-      const resizeObserver = new ResizeObserver(entries => {
-        const { width } = entries[0].contentRect;
-        setDimensions({ width, height: 600 });
-      });
-      
-      resizeObserver.observe(containerRef.current);
-      
-      return () => {
-        resizeObserver.disconnect();
-      };
-    }
+    setIsClient(true);
   }, []);
+
+  // 如果不是客戶端環境，返回空白區域
+  if (!isClient) return <div className="w-full h-[600px] bg-[#0D1037]"></div>;
 
   // 轉換數據格式
   const chartData = data.map((d) => ({
@@ -116,6 +109,10 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ data, settings }) => {
   const marginRight = 50;
   const marginBottom = 25;
   const marginLeft = 50;
+  
+  // 使用固定尺寸
+  const width = 1000;
+  const height = 600;
 
   // 計算技術指標
   const sma20Calculator = sma()
@@ -177,15 +174,10 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ data, settings }) => {
     widthRatio: 0.6,
   };
 
-  const { width } = dimensions;
-
-  // 如果容器尺寸無效，則返回空容器
-  if (!width) return <div className="w-full h-[600px] bg-[#0D1037]"></div>;
-
   return (
-    <div ref={containerRef} className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden">
+    <div className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center">
       <ChartCanvas
-        height={600}
+        height={height}
         width={width}
         ratio={1}
         margin={{ left: marginLeft, right: marginRight, top: marginTop, bottom: marginBottom }}
@@ -397,7 +389,7 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ data, settings }) => {
 
             <BarSeries
               yAccessor={(d: any) => d.volume}
-              fillStyle={chartColors.volumeUp}
+              fillStyle={volumeColor}
               strokeStyle="#000000"
             />
 

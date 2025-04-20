@@ -89,7 +89,12 @@ const generateSixMonthsData = (): ChartDataPoint[] => {
   return data;
 };
 
-// 生成並導出模擬資料
+// 生成並存儲模擬資料
 const fakeChartData = generateSixMonthsData();
+
+// 導出獲取數據的函數，避免客戶端渲染和服務器渲染不一致的問題
+export const getFakeChartData = (): ChartDataPoint[] => {
+  return fakeChartData;
+};
 
 export default fakeChartData; 
