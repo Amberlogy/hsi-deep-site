@@ -73,6 +73,7 @@
 2. 檢查 package.json 中是否有 recharts 依賴
 3. 使用 `--force` 參數重新部署: `vercel --prod --force`
 4. 添加 vercel.json 配置文件，自定義安裝命令:
+
    ```json
    {
      "version": 2,
@@ -87,7 +88,9 @@
      ]
    }
    ```
+
 5. 在 next.config.js 中添加 transpilePackages 配置:
+
    ```js
    transpilePackages: ['recharts']
    ```
