@@ -13,7 +13,8 @@ import type { ChartSettings } from '@/components/Chart/OverviewChart';
 const OverviewChart = dynamic(
   () => import('@/components/Chart/OverviewChart').catch(err => {
     console.error('Error loading OverviewChart:', err);
-    return () => (
+    // 創建具名函數組件以滿足 eslint 要求
+    const ChartErrorFallback = () => (
       <div className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center items-center">
         <div className="text-white text-center p-8">
           <h3 className="text-xl mb-2">圖表加載失敗</h3>
@@ -21,12 +22,21 @@ const OverviewChart = dynamic(
         </div>
       </div>
     );
+    ChartErrorFallback.displayName = 'ChartErrorFallback';
+    return ChartErrorFallback;
   }),
-  { ssr: false, loading: () => (
-    <div className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center items-center">
-      <div className="text-white">正在加載圖表...</div>
-    </div>
-  )}
+  { 
+    ssr: false, 
+    loading: () => {
+      const ChartLoadingState = () => (
+        <div className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center items-center">
+          <div className="text-white">正在加載圖表...</div>
+        </div>
+      );
+      ChartLoadingState.displayName = 'ChartLoadingState';
+      return <ChartLoadingState />;
+    }
+  }
 );
 
 // 錯誤邊界組件
