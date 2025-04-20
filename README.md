@@ -68,6 +68,7 @@
 ## 常見問題解決
 
 如果部署時出現「Module not found: Can't resolve 'recharts'」錯誤：
+
 1. 確認 recharts 已安裝: `npm install --save recharts`
 2. 檢查 package.json 中是否有 recharts 依賴
 3. 使用 `--force` 參數重新部署: `vercel --prod --force`
