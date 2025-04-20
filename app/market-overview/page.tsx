@@ -4,16 +4,64 @@
 // 輸入: 用戶選項和互動
 // 輸出: 動態金融圖表與市場數據
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { getFakeChartData } from '@/data/fakeChartData';
 import type { ChartSettings } from '@/components/Chart/OverviewChart';
 
 // 客戶端動態導入圖表組件，禁用SSR
 const OverviewChart = dynamic(
-  () => import('@/components/Chart/OverviewChart'),
-  { ssr: false }
+  () => import('@/components/Chart/OverviewChart').catch(err => {
+    console.error('Error loading OverviewChart:', err);
+    return () => (
+      <div className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center items-center">
+        <div className="text-white text-center p-8">
+          <h3 className="text-xl mb-2">圖表加載失敗</h3>
+          <p>無法顯示圖表。請稍後再試或聯繫技術支持。</p>
+        </div>
+      </div>
+    );
+  }),
+  { ssr: false, loading: () => (
+    <div className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center items-center">
+      <div className="text-white">正在加載圖表...</div>
+    </div>
+  )}
 );
+
+// 錯誤邊界組件
+const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    const handleError = (error: ErrorEvent) => {
+      console.error('Caught an error:', error);
+      setHasError(true);
+    };
+
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+
+  if (hasError) {
+    return (
+      <div className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center items-center">
+        <div className="text-white text-center p-8">
+          <h3 className="text-xl mb-2">出現錯誤</h3>
+          <p>圖表渲染過程中發生錯誤。請重新整理頁面或聯繫技術支持。</p>
+          <button 
+            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded"
+            onClick={() => setHasError(false)}
+          >
+            重試
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+};
 
 // 圖表類型選項
 const chartTypes = [
@@ -252,7 +300,9 @@ export default function MarketOverviewPage() {
         
         {/* 圖表顯示區域 */}
         <div className="mt-6">
-          <OverviewChart data={getFakeChartData()} settings={chartSettings} />
+          <ErrorBoundary>
+            <OverviewChart data={getFakeChartData()} settings={chartSettings} />
+          </ErrorBoundary>
         </div>
         
         {/* 市場摘要資訊 */}

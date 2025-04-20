@@ -77,6 +77,7 @@ const volumeFormat = format(".0s");
 const OverviewChart: React.FC<OverviewChartProps> = ({ data, settings }) => {
   // 客戶端渲染檢查
   const [isClient, setIsClient] = useState(false);
+  const [chartError, setChartError] = useState<Error | null>(null);
   
   // 在客戶端環境中設置標誌
   useEffect(() => {
@@ -86,332 +87,364 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ data, settings }) => {
   // 如果不是客戶端環境，返回空白區域
   if (!isClient) return <div className="w-full h-[600px] bg-[#0D1037]"></div>;
 
-  // 轉換數據格式
-  const chartData = data.map((d) => ({
-    date: new Date(d.date),
-    open: d.open,
-    high: d.high,
-    low: d.low,
-    close: d.close,
-    volume: d.volume,
-    rsi: d.rsi,
-    macd: d.macd,
-    macdSignal: d.macdSignal,
-    macdHistogram: d.macdHistogram,
-    sma20: d.sma20,
-    sma50: d.sma50,
-  }));
+  // 如果發生錯誤，顯示錯誤訊息
+  if (chartError) {
+    return (
+      <div className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center items-center">
+        <div className="text-white text-center p-8">
+          <h3 className="text-xl mb-2">圖表渲染錯誤</h3>
+          <p>{chartError.message}</p>
+          <button 
+            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded"
+            onClick={() => setChartError(null)}
+          >
+            重試
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-  // 設定圖表區域高度比例
-  const mainChartHeight = 360;
-  const indicatorHeight = 80;
-  const marginTop = 30;
-  const marginRight = 50;
-  const marginBottom = 25;
-  const marginLeft = 50;
-  
-  // 使用固定尺寸
-  const width = 1000;
-  const height = 600;
+  try {
+    // 轉換數據格式
+    const chartData = data.map((d) => ({
+      date: new Date(d.date),
+      open: d.open,
+      high: d.high,
+      low: d.low,
+      close: d.close,
+      volume: d.volume,
+      rsi: d.rsi,
+      macd: d.macd,
+      macdSignal: d.macdSignal,
+      macdHistogram: d.macdHistogram,
+      sma20: d.sma20,
+      sma50: d.sma50,
+    }));
 
-  // 計算技術指標
-  const sma20Calculator = sma()
-    .options({ windowSize: 20 })
-    .merge((d: any, c: any) => { d.sma20 = c; })
-    .accessor((d: any) => d.sma20);
+    // 設定圖表區域高度比例
+    const mainChartHeight = 360;
+    const indicatorHeight = 80;
+    const marginTop = 30;
+    const marginRight = 50;
+    const marginBottom = 25;
+    const marginLeft = 50;
+    
+    // 使用固定尺寸
+    const width = 1000;
+    const height = 600;
 
-  const sma50Calculator = sma()
-    .options({ windowSize: 50 })
-    .merge((d: any, c: any) => { d.sma50 = c; })
-    .accessor((d: any) => d.sma50);
+    // 計算技術指標
+    const sma20Calculator = sma()
+      .options({ windowSize: 20 })
+      .merge((d: any, c: any) => { d.sma20 = c; })
+      .accessor((d: any) => d.sma20);
 
-  const rsiCalculator = rsi()
-    .options({ windowSize: 14 })
-    .merge((d: any, c: any) => { d.rsi = c; })
-    .accessor((d: any) => d.rsi);
+    const sma50Calculator = sma()
+      .options({ windowSize: 50 })
+      .merge((d: any, c: any) => { d.sma50 = c; })
+      .accessor((d: any) => d.sma50);
 
-  const macdCalculator = macd()
-    .options({
-      fast: 12,
-      slow: 26,
-      signal: 9,
-    })
-    .merge((d: any, c: any) => { d.macd = c; })
-    .accessor((d: any) => d.macd);
+    const rsiCalculator = rsi()
+      .options({ windowSize: 14 })
+      .merge((d: any, c: any) => { d.rsi = c; })
+      .accessor((d: any) => d.rsi);
 
-  // 設定時間軸
-  const xScaleProvider = discontinuousTimeScaleProviderBuilder()
-    .inputDateAccessor((d: any) => d.date);
-  
-  const { data: xScaleData, xScale, xAccessor, displayXAccessor } = xScaleProvider(chartData);
+    const macdCalculator = macd()
+      .options({
+        fast: 12,
+        slow: 26,
+        signal: 9,
+      })
+      .merge((d: any, c: any) => { d.macd = c; })
+      .accessor((d: any) => d.macd);
 
-  // 獲取可視區域的數據範圍
-  const xExtents = [
-    xAccessor(xScaleData[Math.max(0, xScaleData.length - 120)]), // 初始顯示最近120個數據點
-    xAccessor(xScaleData[xScaleData.length - 1])
-  ];
+    // 設定時間軸
+    const xScaleProvider = discontinuousTimeScaleProviderBuilder()
+      .inputDateAccessor((d: any) => d.date);
+    
+    const { data: xScaleData, xScale, xAccessor, displayXAccessor } = xScaleProvider(chartData);
 
-  // 根據設定顯示指標
-  const showRSI = settings.subCharts.includes('RSI');
-  const showMACD = settings.subCharts.includes('MACD');
-  const showVolume = settings.subCharts.includes('Volume');
-  
-  // 獲取主圖指標狀態
-  const showSMA = settings.mainIndicator === 'sma';
-  const showEMA = settings.mainIndicator === 'ema';
+    // 獲取可視區域的數據範圍
+    const xExtents = [
+      xAccessor(xScaleData[Math.max(0, xScaleData.length - 120)]), // 初始顯示最近120個數據點
+      xAccessor(xScaleData[xScaleData.length - 1])
+    ];
 
-  // 定義成交量柱顏色
-  const volumeColor = (d: any) => {
-    return d.close >= d.open ? chartColors.volumeUp : chartColors.volumeDown;
-  };
+    // 根據設定顯示指標
+    const showRSI = settings.subCharts.includes('RSI');
+    const showMACD = settings.subCharts.includes('MACD');
+    const showVolume = settings.subCharts.includes('Volume');
+    
+    // 獲取主圖指標狀態
+    const showSMA = settings.mainIndicator === 'sma';
+    const showEMA = settings.mainIndicator === 'ema';
 
-  // 蠟燭圖顏色
-  const candlesAppearance = {
-    wickStroke: (d: any) => d.close >= d.open ? chartColors.wickUpColor : chartColors.wickDownColor,
-    fill: (d: any) => d.close >= d.open ? chartColors.upColor : chartColors.downColor,
-    stroke: (d: any) => d.close >= d.open ? chartColors.borderUpColor : chartColors.borderDownColor,
-    candleStrokeWidth: 1,
-    widthRatio: 0.6,
-  };
+    // 定義成交量柱顏色
+    const volumeColor = (d: any) => {
+      return d.close >= d.open ? chartColors.volumeUp : chartColors.volumeDown;
+    };
 
-  return (
-    <div className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center">
-      <ChartCanvas
-        height={height}
-        width={width}
-        ratio={1}
-        margin={{ left: marginLeft, right: marginRight, top: marginTop, bottom: marginBottom }}
-        seriesName="HSI Chart"
-        data={xScaleData}
-        xScale={xScale}
-        xAccessor={xAccessor}
-        displayXAccessor={displayXAccessor}
-        xExtents={xExtents}
-      >
-        {/* 主圖 */}
-        <Chart
-          id={1}
-          height={mainChartHeight}
-          yExtents={(d: any) => [d.high, d.low]}
-          padding={{ top: 10, bottom: 20 }}
+    // 蠟燭圖顏色
+    const candlesAppearance = {
+      wickStroke: (d: any) => d.close >= d.open ? chartColors.wickUpColor : chartColors.wickDownColor,
+      fill: (d: any) => d.close >= d.open ? chartColors.upColor : chartColors.downColor,
+      stroke: (d: any) => d.close >= d.open ? chartColors.borderUpColor : chartColors.borderDownColor,
+      candleStrokeWidth: 1,
+      widthRatio: 0.6,
+    };
+
+    return (
+      <div className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center">
+        <ChartCanvas
+          height={height}
+          width={width}
+          ratio={1}
+          margin={{ left: marginLeft, right: marginRight, top: marginTop, bottom: marginBottom }}
+          seriesName="HSI Chart"
+          data={xScaleData}
+          xScale={xScale}
+          xAccessor={xAccessor}
+          displayXAccessor={displayXAccessor}
+          xExtents={xExtents}
         >
-          <XAxis showTicks={false} showTickLabel={false} />
-          <YAxis ticks={10} tickFormat={numberFormat} />
-          <MouseCoordinateY rectWidth={marginRight} displayFormat={numberFormat} />
+          {/* 主圖 */}
+          <Chart
+            id={1}
+            height={mainChartHeight}
+            yExtents={(d: any) => [d.high, d.low]}
+            padding={{ top: 10, bottom: 20 }}
+          >
+            <XAxis showTicks={false} showTickLabel={false} />
+            <YAxis ticks={10} tickFormat={numberFormat} />
+            <MouseCoordinateY rectWidth={marginRight} displayFormat={numberFormat} />
 
-          {/* 根據設定選擇圖表類型 */}
-          {settings.chartType === 'candlestick' && (
-            <CandlestickSeries {...candlesAppearance} />
-          )}
-          {settings.chartType === 'bar' && (
-            <BarSeries 
-              yAccessor={(d: any) => d.close} 
-              strokeStyle="#000000"
-            />
-          )}
-          {settings.chartType === 'line' && (
-            <LineSeries 
-              yAccessor={(d: any) => d.close} 
-              strokeStyle={chartColors.sma20} 
-              strokeWidth={2} 
-            />
-          )}
-          {settings.chartType === 'area' && (
-            <AreaSeries 
-              yAccessor={(d: any) => d.close} 
-              fillStyle="rgba(38, 166, 154, 0.3)" 
-              strokeStyle={chartColors.upColor} 
-              strokeWidth={2} 
-            />
-          )}
-          {settings.chartType === 'ohlc' && (
-            <OHLCSeries 
-              yAccessor={(d: any) => ({ open: d.open, high: d.high, low: d.low, close: d.close })}
-            />
-          )}
-          {settings.chartType === 'hlc' && (
-            <OHLCSeries 
-              yAccessor={(d: any) => ({ open: d.open, high: d.high, low: d.low, close: d.close })}
-            />
-          )}
-
-          {/* 移動平均線 */}
-          {showSMA && (
-            <>
-              <LineSeries
-                yAccessor={sma20Calculator.accessor()}
-                strokeStyle={chartColors.sma20}
-                strokeWidth={1}
+            {/* 根據設定選擇圖表類型 */}
+            {settings.chartType === 'candlestick' && (
+              <CandlestickSeries {...candlesAppearance} />
+            )}
+            {settings.chartType === 'bar' && (
+              <BarSeries 
+                yAccessor={(d: any) => d.close} 
+                strokeStyle="#000000"
               />
-              <LineSeries
-                yAccessor={sma50Calculator.accessor()}
-                strokeStyle={chartColors.sma50}
-                strokeWidth={1}
+            )}
+            {settings.chartType === 'line' && (
+              <LineSeries 
+                yAccessor={(d: any) => d.close} 
+                strokeStyle={chartColors.sma20} 
+                strokeWidth={2} 
               />
-            </>
+            )}
+            {settings.chartType === 'area' && (
+              <AreaSeries 
+                yAccessor={(d: any) => d.close} 
+                fillStyle="rgba(38, 166, 154, 0.3)" 
+                strokeStyle={chartColors.upColor} 
+                strokeWidth={2} 
+              />
+            )}
+            {settings.chartType === 'ohlc' && (
+              <OHLCSeries 
+                yAccessor={(d: any) => ({ open: d.open, high: d.high, low: d.low, close: d.close })}
+              />
+            )}
+            {settings.chartType === 'hlc' && (
+              <OHLCSeries 
+                yAccessor={(d: any) => ({ open: d.open, high: d.high, low: d.low, close: d.close })}
+              />
+            )}
+
+            {/* 移動平均線 */}
+            {showSMA && (
+              <>
+                <LineSeries
+                  yAccessor={sma20Calculator.accessor()}
+                  strokeStyle={chartColors.sma20}
+                  strokeWidth={1}
+                />
+                <LineSeries
+                  yAccessor={sma50Calculator.accessor()}
+                  strokeStyle={chartColors.sma50}
+                  strokeWidth={1}
+                />
+              </>
+            )}
+
+            {/* 價格標籤 */}
+            <EdgeIndicator
+              itemType="last"
+              orient="right"
+              edgeAt="right"
+              yAccessor={(d: any) => d.close}
+              fill={(d: any) => d.close >= d.open ? chartColors.upColor : chartColors.downColor}
+              lineStroke="#fff"
+              fontSize={12}
+            />
+
+            {/* 移動平均線提示 */}
+            {showSMA && (
+              <MovingAverageTooltip
+                origin={[8, 8]}
+                options={[
+                  {
+                    yAccessor: sma20Calculator.accessor(),
+                    type: "SMA",
+                    stroke: chartColors.sma20,
+                    windowSize: 20,
+                  },
+                  {
+                    yAccessor: sma50Calculator.accessor(),
+                    type: "SMA",
+                    stroke: chartColors.sma50,
+                    windowSize: 50,
+                  },
+                ]}
+              />
+            )}
+          </Chart>
+
+          {/* RSI 指標 */}
+          {showRSI && (
+            <Chart
+              id={2}
+              height={indicatorHeight}
+              origin={(w, h) => [0, mainChartHeight + marginTop]}
+              yExtents={rsiCalculator.accessor()}
+              padding={{ top: 8, bottom: 8 }}
+            >
+              <XAxis showTicks={false} showTickLabel={false} />
+              <YAxis ticks={5} tickValues={[30, 50, 70]} />
+              <MouseCoordinateY rectWidth={marginRight} displayFormat={numberFormat} />
+
+              <RSISeries
+                yAccessor={rsiCalculator.accessor()}
+                strokeStyle={{
+                  line: chartColors.rsiLine,
+                  top: "#8A0000",
+                  middle: "#000000",
+                  bottom: "#0000A5",
+                  outsideThreshold: "rgba(255, 0, 0, 0.2)",
+                  insideThreshold: "rgba(0, 0, 255, 0.2)"
+                }}
+              />
+
+              <EdgeIndicator
+                itemType="last"
+                orient="right"
+                edgeAt="right"
+                yAccessor={rsiCalculator.accessor()}
+                fill={chartColors.rsiLine}
+                lineStroke="#fff"
+                fontSize={12}
+              />
+            </Chart>
           )}
 
-          {/* 價格標籤 */}
-          <EdgeIndicator
-            itemType="last"
-            orient="right"
-            edgeAt="right"
-            yAccessor={(d: any) => d.close}
-            fill={(d: any) => d.close >= d.open ? chartColors.upColor : chartColors.downColor}
-            lineStroke="#fff"
-            fontSize={12}
-          />
+          {/* MACD 指標 */}
+          {showMACD && (
+            <Chart
+              id={3}
+              height={indicatorHeight}
+              origin={(w, h) => [0, mainChartHeight + (showRSI ? indicatorHeight : 0) + marginTop]}
+              yExtents={macdCalculator.accessor()}
+              padding={{ top: 8, bottom: 8 }}
+            >
+              <XAxis showTicks={false} showTickLabel={false} />
+              <YAxis ticks={5} />
+              <MouseCoordinateY rectWidth={marginRight} displayFormat={numberFormat} />
 
-          {/* 移動平均線提示 */}
-          {showSMA && (
-            <MovingAverageTooltip
-              origin={[8, 8]}
-              options={[
-                {
-                  yAccessor: sma20Calculator.accessor(),
-                  type: "SMA",
-                  stroke: chartColors.sma20,
-                  windowSize: 20,
-                },
-                {
-                  yAccessor: sma50Calculator.accessor(),
-                  type: "SMA",
-                  stroke: chartColors.sma50,
-                  windowSize: 50,
-                },
+              <MACDSeries
+                yAccessor={macdCalculator.accessor()}
+                {...macdCalculator.options()}
+                strokeStyle={{
+                  macd: chartColors.macdLine,
+                  signal: chartColors.macdSignalLine,
+                  zero: "#000000"
+                }}
+                fillStyle={{
+                  divergence: "rgba(38, 166, 154, 0.5)"
+                }}
+              />
+
+              <EdgeIndicator
+                itemType="last"
+                orient="right"
+                edgeAt="right"
+                yAccessor={(d: any) => d.macd}
+                fill={chartColors.macdLine}
+                lineStroke="#fff"
+                fontSize={12}
+              />
+              <EdgeIndicator
+                itemType="last"
+                orient="right"
+                edgeAt="right"
+                yAccessor={(d: any) => d.macdSignal}
+                fill={chartColors.macdSignalLine}
+                lineStroke="#fff"
+                fontSize={12}
+              />
+            </Chart>
+          )}
+
+          {/* 成交量指標 */}
+          {showVolume && (
+            <Chart
+              id={4}
+              height={indicatorHeight}
+              origin={(w, h) => [
+                0,
+                mainChartHeight +
+                  (showRSI ? indicatorHeight : 0) +
+                  (showMACD ? indicatorHeight : 0) +
+                  marginTop,
               ]}
-            />
+              yExtents={(d: any) => d.volume}
+              padding={{ top: 8, bottom: 8 }}
+            >
+              <XAxis tickFormat={timeFormat("%m/%d")} />
+              <YAxis ticks={5} tickFormat={volumeFormat} />
+              <MouseCoordinateY rectWidth={marginRight} displayFormat={volumeFormat} />
+
+              <BarSeries
+                yAccessor={(d: any) => d.volume}
+                fillStyle={volumeColor}
+                strokeStyle="#000000"
+              />
+
+              <EdgeIndicator
+                itemType="last"
+                orient="right"
+                edgeAt="right"
+                yAccessor={(d: any) => d.volume}
+                fill={chartColors.volumeUp}
+                lineStroke="#fff"
+                fontSize={12}
+                displayFormat={volumeFormat}
+              />
+            </Chart>
           )}
-        </Chart>
 
-        {/* RSI 指標 */}
-        {showRSI && (
-          <Chart
-            id={2}
-            height={indicatorHeight}
-            origin={(w, h) => [0, mainChartHeight + marginTop]}
-            yExtents={rsiCalculator.accessor()}
-            padding={{ top: 8, bottom: 8 }}
-          >
-            <XAxis showTicks={false} showTickLabel={false} />
-            <YAxis ticks={5} tickValues={[30, 50, 70]} />
-            <MouseCoordinateY rectWidth={marginRight} displayFormat={numberFormat} />
-
-            <RSISeries
-              yAccessor={rsiCalculator.accessor()}
-              strokeStyle={{
-                line: chartColors.rsiLine,
-                top: "#8A0000",
-                middle: "#000000",
-                bottom: "#0000A5",
-                outsideThreshold: "rgba(255, 0, 0, 0.2)",
-                insideThreshold: "rgba(0, 0, 255, 0.2)"
-              }}
-            />
-
-            <EdgeIndicator
-              itemType="last"
-              orient="right"
-              edgeAt="right"
-              yAccessor={rsiCalculator.accessor()}
-              fill={chartColors.rsiLine}
-              lineStroke="#fff"
-              fontSize={12}
-            />
-          </Chart>
-        )}
-
-        {/* MACD 指標 */}
-        {showMACD && (
-          <Chart
-            id={3}
-            height={indicatorHeight}
-            origin={(w, h) => [0, mainChartHeight + (showRSI ? indicatorHeight : 0) + marginTop]}
-            yExtents={macdCalculator.accessor()}
-            padding={{ top: 8, bottom: 8 }}
-          >
-            <XAxis showTicks={false} showTickLabel={false} />
-            <YAxis ticks={5} />
-            <MouseCoordinateY rectWidth={marginRight} displayFormat={numberFormat} />
-
-            <MACDSeries
-              yAccessor={macdCalculator.accessor()}
-              {...macdCalculator.options()}
-              strokeStyle={{
-                macd: chartColors.macdLine,
-                signal: chartColors.macdSignalLine,
-                zero: "#000000"
-              }}
-              fillStyle={{
-                divergence: "rgba(38, 166, 154, 0.5)"
-              }}
-            />
-
-            <EdgeIndicator
-              itemType="last"
-              orient="right"
-              edgeAt="right"
-              yAccessor={(d: any) => d.macd}
-              fill={chartColors.macdLine}
-              lineStroke="#fff"
-              fontSize={12}
-            />
-            <EdgeIndicator
-              itemType="last"
-              orient="right"
-              edgeAt="right"
-              yAccessor={(d: any) => d.macdSignal}
-              fill={chartColors.macdSignalLine}
-              lineStroke="#fff"
-              fontSize={12}
-            />
-          </Chart>
-        )}
-
-        {/* 成交量指標 */}
-        {showVolume && (
-          <Chart
-            id={4}
-            height={indicatorHeight}
-            origin={(w, h) => [
-              0,
-              mainChartHeight +
-                (showRSI ? indicatorHeight : 0) +
-                (showMACD ? indicatorHeight : 0) +
-                marginTop,
-            ]}
-            yExtents={(d: any) => d.volume}
-            padding={{ top: 8, bottom: 8 }}
-          >
-            <XAxis tickFormat={timeFormat("%m/%d")} />
-            <YAxis ticks={5} tickFormat={volumeFormat} />
-            <MouseCoordinateY rectWidth={marginRight} displayFormat={volumeFormat} />
-
-            <BarSeries
-              yAccessor={(d: any) => d.volume}
-              fillStyle={volumeColor}
-              strokeStyle="#000000"
-            />
-
-            <EdgeIndicator
-              itemType="last"
-              orient="right"
-              edgeAt="right"
-              yAccessor={(d: any) => d.volume}
-              fill={chartColors.volumeUp}
-              lineStroke="#fff"
-              fontSize={12}
-              displayFormat={volumeFormat}
-            />
-          </Chart>
-        )}
-
-        {/* 十字游標 */}
-        <CrossHairCursor strokeStyle="#FFFFFF" />
-        <MouseCoordinateX displayFormat={dateFormat} />
-      </ChartCanvas>
-    </div>
-  );
+          {/* 十字游標 */}
+          <CrossHairCursor strokeStyle="#FFFFFF" />
+          <MouseCoordinateX displayFormat={dateFormat} />
+        </ChartCanvas>
+      </div>
+    );
+  } catch (error) {
+    console.error('Chart rendering error:', error);
+    setChartError(error instanceof Error ? error : new Error('未知圖表渲染錯誤'));
+    
+    return (
+      <div className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center items-center">
+        <div className="text-white text-center p-8">
+          <h3 className="text-xl mb-2">圖表無法渲染</h3>
+          <p>請稍後再試或聯繫技術支持。</p>
+        </div>
+      </div>
+    );
+  }
 };
 
 export default OverviewChart; 

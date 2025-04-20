@@ -24,77 +24,136 @@ const generateRandomPrice = (basePrice: number, volatility: number): number => {
 
 // 生成6個月的模擬資料
 const generateSixMonthsData = (): ChartDataPoint[] => {
-  const data: ChartDataPoint[] = [];
-  
-  // 模擬起始價格
-  let basePrice = 28000; // 恆指基本點位
-  const startDate = new Date('2024-01-01');
-  
-  // 生成每個交易日資料
-  for (let i = 0; i < 120; i++) { // 約6個月交易日
-    const currentDate = new Date(startDate);
-    currentDate.setDate(startDate.getDate() + i);
+  try {
+    const data: ChartDataPoint[] = [];
     
-    // 跳過週末
-    const dayOfWeek = currentDate.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      continue;
+    // 模擬起始價格
+    let basePrice = 28000; // 恆指基本點位
+    const startDate = new Date('2024-01-01');
+    
+    // 生成每個交易日資料
+    for (let i = 0; i < 120; i++) { // 約6個月交易日
+      const currentDate = new Date(startDate);
+      currentDate.setDate(startDate.getDate() + i);
+      
+      // 跳過週末
+      const dayOfWeek = currentDate.getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        continue;
+      }
+      
+      // 日期格式化為 yyyy-mm-dd
+      const dateStr = currentDate.toISOString().split('T')[0];
+      
+      // 基於前一天價格生成漲跌
+      const dailyVolatility = basePrice * 0.02; // 每日波動率約2%
+      
+      // 生成OHLC數據
+      const open = basePrice;
+      const high = generateRandomPrice(open, dailyVolatility * 0.5);
+      const low = generateRandomPrice(open, dailyVolatility * 0.5);
+      const close = generateRandomPrice((high + low) / 2, dailyVolatility * 0.3);
+      
+      // 生成成交量（百萬股）
+      const volume = Math.round(Math.random() * 2000 + 1000);
+      
+      // 模擬技術指標
+      const rsi = Math.round(Math.random() * 40 + 30); // RSI介於30-70
+      const macd = parseFloat((Math.random() * 200 - 100).toFixed(2));
+      const macdSignal = parseFloat((macd + Math.random() * 40 - 20).toFixed(2));
+      const macdHistogram = parseFloat((macd - macdSignal).toFixed(2));
+      
+      // 移動平均線
+      const sma20 = parseFloat((basePrice + Math.random() * 200 - 100).toFixed(2));
+      const sma50 = parseFloat((basePrice + Math.random() * 300 - 150).toFixed(2));
+      
+      // 添加資料點
+      data.push({
+        date: dateStr,
+        open,
+        high: Math.max(open, close, high),
+        low: Math.min(open, close, low),
+        close,
+        volume,
+        rsi,
+        macd,
+        macdSignal,
+        macdHistogram,
+        sma20,
+        sma50
+      });
+      
+      // 收盤價成為下一個交易日的基本價格
+      basePrice = close;
     }
     
-    // 日期格式化為 yyyy-mm-dd
-    const dateStr = currentDate.toISOString().split('T')[0];
-    
-    // 基於前一天價格生成漲跌
-    const dailyVolatility = basePrice * 0.02; // 每日波動率約2%
-    
-    // 生成OHLC數據
-    const open = basePrice;
-    const high = generateRandomPrice(open, dailyVolatility * 0.5);
-    const low = generateRandomPrice(open, dailyVolatility * 0.5);
-    const close = generateRandomPrice((high + low) / 2, dailyVolatility * 0.3);
-    
-    // 生成成交量（百萬股）
-    const volume = Math.round(Math.random() * 2000 + 1000);
-    
-    // 模擬技術指標
-    const rsi = Math.round(Math.random() * 40 + 30); // RSI介於30-70
-    const macd = parseFloat((Math.random() * 200 - 100).toFixed(2));
-    const macdSignal = parseFloat((macd + Math.random() * 40 - 20).toFixed(2));
-    const macdHistogram = parseFloat((macd - macdSignal).toFixed(2));
-    
-    // 移動平均線
-    const sma20 = parseFloat((basePrice + Math.random() * 200 - 100).toFixed(2));
-    const sma50 = parseFloat((basePrice + Math.random() * 300 - 150).toFixed(2));
-    
-    // 添加資料點
-    data.push({
-      date: dateStr,
-      open,
-      high: Math.max(open, close, high),
-      low: Math.min(open, close, low),
-      close,
-      volume,
-      rsi,
-      macd,
-      macdSignal,
-      macdHistogram,
-      sma20,
-      sma50
-    });
-    
-    // 收盤價成為下一個交易日的基本價格
-    basePrice = close;
+    return data;
+  } catch (error) {
+    console.error('Error generating fake chart data:', error);
+    // 返回最小可用的假資料，以防止完全無法渲染
+    return Array(30).fill(0).map((_, i) => ({
+      date: `2024-01-${i + 1 < 10 ? '0' + (i + 1) : i + 1}`,
+      open: 28000 + i * 100,
+      high: 28000 + i * 100 + 200,
+      low: 28000 + i * 100 - 200,
+      close: 28000 + i * 100 + 50,
+      volume: 1500,
+      rsi: 50,
+      macd: 0,
+      macdSignal: 0,
+      macdHistogram: 0,
+      sma20: 28000 + i * 100,
+      sma50: 28000 + i * 100
+    }));
   }
-  
-  return data;
 };
 
 // 生成並存儲模擬資料
-const fakeChartData = generateSixMonthsData();
+let fakeChartData: ChartDataPoint[];
+
+try {
+  fakeChartData = generateSixMonthsData();
+} catch (error) {
+  console.error('Failed to initialize fake chart data:', error);
+  // 提供備用數據
+  fakeChartData = Array(10).fill(0).map((_, i) => ({
+    date: `2024-01-${i + 1 < 10 ? '0' + (i + 1) : i + 1}`,
+    open: 28000,
+    high: 28100,
+    low: 27900,
+    close: 28050,
+    volume: 1500,
+    rsi: 50,
+    macd: 0,
+    macdSignal: 0,
+    macdHistogram: 0,
+    sma20: 28000,
+    sma50: 28000
+  }));
+}
 
 // 導出獲取數據的函數，避免客戶端渲染和服務器渲染不一致的問題
 export const getFakeChartData = (): ChartDataPoint[] => {
-  return fakeChartData;
+  try {
+    return fakeChartData;
+  } catch (error) {
+    console.error('Error accessing fake chart data:', error);
+    // 如果訪問數據時發生錯誤，返回應急數據
+    return Array(5).fill(0).map((_, i) => ({
+      date: `2024-01-0${i + 1}`,
+      open: 28000,
+      high: 28100,
+      low: 27900,
+      close: 28050,
+      volume: 1500,
+      rsi: 50,
+      macd: 0,
+      macdSignal: 0,
+      macdHistogram: 0,
+      sma20: 28000,
+      sma50: 28000
+    }));
+  }
 };
 
 export default fakeChartData; 
