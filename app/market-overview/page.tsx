@@ -5,73 +5,15 @@
 // 輸出: 動態金融圖表與市場數據
 
 import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
-import { getFakeChartData } from '@/data/fakeChartData';
-import type { ChartSettings } from '@/components/Chart/OverviewChart';
+import Image from 'next/image';
 
-// 客戶端動態導入圖表組件，禁用SSR
-const OverviewChart = dynamic(
-  () => import('@/components/Chart/OverviewChart').catch(err => {
-    console.error('Error loading OverviewChart:', err);
-    // 創建具名函數組件以滿足 eslint 要求
-    const ChartErrorFallback = () => (
-      <div className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center items-center">
-        <div className="text-white text-center p-8">
-          <h3 className="text-xl mb-2">圖表加載失敗</h3>
-          <p>無法顯示圖表。請稍後再試或聯繫技術支持。</p>
-        </div>
-      </div>
-    );
-    ChartErrorFallback.displayName = 'ChartErrorFallback';
-    return ChartErrorFallback;
-  }),
-  { 
-    ssr: false, 
-    loading: () => {
-      const ChartLoadingState = () => (
-        <div className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center items-center">
-          <div className="text-white">正在加載圖表...</div>
-        </div>
-      );
-      ChartLoadingState.displayName = 'ChartLoadingState';
-      return <ChartLoadingState />;
-    }
-  }
-);
-
-// 錯誤邊界組件
-const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
-  const [hasError, setHasError] = useState(false);
-
-  useEffect(() => {
-    const handleError = (error: ErrorEvent) => {
-      console.error('Caught an error:', error);
-      setHasError(true);
-    };
-
-    window.addEventListener('error', handleError);
-    return () => window.removeEventListener('error', handleError);
-  }, []);
-
-  if (hasError) {
-    return (
-      <div className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center items-center">
-        <div className="text-white text-center p-8">
-          <h3 className="text-xl mb-2">出現錯誤</h3>
-          <p>圖表渲染過程中發生錯誤。請重新整理頁面或聯繫技術支持。</p>
-          <button 
-            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded"
-            onClick={() => setHasError(false)}
-          >
-            重試
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
-};
+// 簡化版的圖表設定，移除對 OverviewChart 組件的依賴
+interface ChartSettings {
+  chartType: 'candlestick' | 'bar' | 'line' | 'area' | 'ohlc' | 'hlc';
+  timeframe: string;
+  mainIndicator: string;
+  subCharts: string[];
+}
 
 // 圖表類型選項
 const chartTypes = [
@@ -131,7 +73,20 @@ export default function MarketOverviewPage() {
     mainIndicator: 'sma',
     subCharts: ['RSI', 'MACD', 'Volume'],
   });
-
+  
+  // 模擬數據狀態
+  const [marketData, setMarketData] = useState({
+    hsiIndex: '28,432.74',
+    hsiChange: '+247.38',
+    hsiPercent: '+0.88%',
+    hsceiIndex: '9,846.31',
+    hsceiChange: '-78.12', 
+    hsceiPercent: '-0.79%',
+    hsciIndex: '3,651.28',
+    hsciChange: '+12.45',
+    hsciPercent: '+0.34%'
+  });
+  
   // 更新圖表類型
   const handleChartTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setChartSettings({
@@ -171,10 +126,27 @@ export default function MarketOverviewPage() {
     return chartSettings.subCharts.indexOf(indicator);
   };
 
-  // 重新渲染圖表
+  // 重新渲染圖表 - 模擬操作
   const handleRefreshChart = () => {
-    // 僅重新渲染圖表，不改變設定
-    setChartSettings({ ...chartSettings });
+    // 顯示加載中提示
+    const loadingDiv = document.getElementById('chart-area');
+    if (loadingDiv) {
+      loadingDiv.innerHTML = '<div class="text-white text-center">載入中...</div>';
+      
+      // 模擬2秒後載入完成
+      setTimeout(() => {
+        loadingDiv.innerHTML = `
+          <div class="text-white text-center p-4">
+            <h3 class="text-xl mb-2">恆生指數 (${chartSettings.timeframe}) - ${chartTypes.find(t => t.value === chartSettings.chartType)?.label}</h3>
+            <p className="mb-4">主要指標: ${mainIndicatorOptions.find(i => i.value === chartSettings.mainIndicator)?.label}</p>
+            <div className="h-[400px] bg-[#162050] rounded-lg flex items-center justify-center">
+              <p>圖表顯示區域 - 正在開發中</p>
+              <p>目前設定: ${JSON.stringify(chartSettings)}</p>
+            </div>
+          </div>
+        `;
+      }, 2000);
+    }
   };
 
   return (
@@ -308,11 +280,19 @@ export default function MarketOverviewPage() {
           </div>
         </div>
         
-        {/* 圖表顯示區域 */}
+        {/* 圖表顯示區域 - 使用靜態預設而非動態元件 */}
         <div className="mt-6">
-          <ErrorBoundary>
-            <OverviewChart data={getFakeChartData()} settings={chartSettings} />
-          </ErrorBoundary>
+          <div id="chart-area" className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center items-center">
+            <div className="text-center p-6">
+              <h3 className="text-xl mb-2">恆生指數 (3mo) - 陰陽燭圖</h3>
+              <p className="mb-4">主要指標: SMA (簡單移動平均線)</p>
+              <p className="text-sm text-gray-400 mb-8">點擊「更新圖表」按鈕以顯示圖表</p>
+              <div className="bg-[#162050] p-8 rounded-lg">
+                <p>圖表開發中...</p>
+                <p className="text-xs mt-4 text-gray-400">此功能將在後續版本中完善</p>
+              </div>
+            </div>
+          </div>
         </div>
         
         {/* 市場摘要資訊 */}
@@ -321,18 +301,18 @@ export default function MarketOverviewPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gray-700 p-3 rounded-lg">
               <h3 className="text-lg font-medium mb-2">恆生指數</h3>
-              <p className="text-2xl font-bold text-green-500">28,432.74</p>
-              <p className="text-green-500">+247.38 (+0.88%)</p>
+              <p className="text-2xl font-bold text-green-500">{marketData.hsiIndex}</p>
+              <p className="text-green-500">{marketData.hsiChange} ({marketData.hsiPercent})</p>
             </div>
             <div className="bg-gray-700 p-3 rounded-lg">
               <h3 className="text-lg font-medium mb-2">國企指數</h3>
-              <p className="text-2xl font-bold text-red-500">9,846.31</p>
-              <p className="text-red-500">-78.12 (-0.79%)</p>
+              <p className="text-2xl font-bold text-red-500">{marketData.hsceiIndex}</p>
+              <p className="text-red-500">{marketData.hsceiChange} ({marketData.hsceiPercent})</p>
             </div>
             <div className="bg-gray-700 p-3 rounded-lg">
               <h3 className="text-lg font-medium mb-2">紅籌指數</h3>
-              <p className="text-2xl font-bold text-green-500">3,651.28</p>
-              <p className="text-green-500">+12.45 (+0.34%)</p>
+              <p className="text-2xl font-bold text-green-500">{marketData.hsciIndex}</p>
+              <p className="text-green-500">{marketData.hsciChange} ({marketData.hsciPercent})</p>
             </div>
           </div>
         </div>
