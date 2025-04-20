@@ -1,0 +1,27 @@
+{
+  "extends": [
+    "stylelint-config-standard",
+    "stylelint-config-recommended",
+    "stylelint-config-tailwindcss"
+  ],
+  "rules": {
+    "at-rule-no-unknown": null,
+    "no-descending-specificity": null,
+    "color-function-notation": null,
+    "alpha-value-notation": null,
+    "color-function-alias-notation": null,
+    "declaration-empty-line-before": null,
+    "function-no-unknown": null,
+    "selector-class-pattern": null,
+    "property-no-vendor-prefix": null,
+    "value-no-vendor-prefix": null,
+    "import-notation": null,
+    "media-feature-range-notation": null
+  },
+  "overrides": [
+    {
+      "files": ["**/*.css"],
+      "customSyntax": "postcss-syntax"
+    }
+  ]
+} 
