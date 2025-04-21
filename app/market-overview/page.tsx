@@ -6,40 +6,52 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { 
-  LineChart, Line, AreaChart, Area, BarChart, Bar, 
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
-  ResponsiveContainer, ComposedChart
-} from 'recharts';
+// import { 
+//   LineChart, Line, AreaChart, Area, BarChart, Bar, 
+//   XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
+//   ResponsiveContainer, ComposedChart
+// } from 'recharts';
+import dynamic from 'next/dynamic'; // 需要動態導入 ProfessionalChart
 
-// 簡化版的圖表設定
-interface ChartSettings {
-  chartType: 'candlestick' | 'bar' | 'line' | 'area' | 'ohlc' | 'hlc';
-  timeframe: string;
-  mainIndicator: string;
-  subCharts: string[];
-}
+// 導入 ProfessionalChart 和相關類型
+import type { ChartSettings } from '@/components/Chart/ProfessionalChart';
+import type { ChartDataPoint } from '@/data/fakeChartData'; // 確保導入 ChartDataPoint
 
-// 模擬金融數據
-interface FinancialData {
-  date: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-  sma20?: number;
-  sma50?: number;
-  ema20?: number;
-  rsi?: number;
-  macd?: number;
-  signal?: number;
-  histogram?: number;
-}
+// 動態導入 ProfessionalChart，禁用 SSR
+const ProfessionalChart = dynamic(
+  () => import('@/components/Chart/ProfessionalChart'),
+  { ssr: false }
+);
 
-// 生成模擬金融數據
-const generateFinancialData = (days: number = 60): FinancialData[] => {
-  const data: FinancialData[] = [];
+
+// // 簡化版的圖表設定 (由 ProfessionalChart 定義)
+// interface ChartSettings {
+//   chartType: 'candlestick' | 'bar' | 'line' | 'area' | 'ohlc' | 'hlc';
+//   timeframe: string;
+//   mainIndicator: string;
+//   subCharts: string[];
+// }
+
+// 模擬金融數據 (改用 ChartDataPoint 格式)
+// interface FinancialData {
+//   date: string;
+//   open: number;
+//   high: number;
+//   low: number;
+//   close: number;
+//   volume: number;
+//   sma20?: number;
+//   sma50?: number;
+//   ema20?: number;
+//   rsi?: number;
+//   macd?: number;
+//   signal?: number;
+//   histogram?: number;
+// }
+
+// 生成模擬金融數據 (修改返回類型為 ChartDataPoint)
+const generateFinancialData = (days: number = 60): ChartDataPoint[] => {
+  const data: ChartDataPoint[] = [];
   let basePrice = 28000;
   const startDate = new Date('2024-01-01');
   
@@ -75,8 +87,8 @@ const generateFinancialData = (days: number = 60): FinancialData[] => {
     const sma50 = Math.round((basePrice + Math.random() * 300 - 150) * 100) / 100;
     const rsi = Math.round(Math.random() * 40 + 30); // 介於30-70
     const macd = parseFloat((Math.random() * 200 - 100).toFixed(2));
-    const signal = parseFloat((macd + Math.random() * 40 - 20).toFixed(2));
-    const histogram = parseFloat((macd - signal).toFixed(2));
+    const macdSignal = parseFloat((macd + Math.random() * 40 - 20).toFixed(2)); // 屬性名改為 macdSignal
+    const macdHistogram = parseFloat((macd - macdSignal).toFixed(2)); // 屬性名改為 macdHistogram
     
     data.push({
       date: dateStr,
@@ -89,8 +101,8 @@ const generateFinancialData = (days: number = 60): FinancialData[] => {
       sma50,
       rsi,
       macd,
-      signal,
-      histogram
+      macdSignal, // 使用正確的屬性名
+      macdHistogram // 使用正確的屬性名
     });
     
     // 更新下一個交易日的基礎價格
@@ -159,8 +171,8 @@ export default function MarketOverviewPage() {
     subCharts: ['RSI', 'MACD', 'Volume'],
   });
   
-  // 模擬金融數據狀態
-  const [financialData, setFinancialData] = useState<FinancialData[]>([]);
+  // 金融數據狀態 (使用 ChartDataPoint[])
+  const [financialData, setFinancialData] = useState<ChartDataPoint[]>([]);
   
   // 模擬指數數據狀態
   const [marketData, setMarketData] = useState({
@@ -176,12 +188,20 @@ export default function MarketOverviewPage() {
   });
   
   // 載入狀態
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // 初始設為 true
   
   // 初始化載入數據
   useEffect(() => {
-    setFinancialData(generateFinancialData(60));
-  }, []);
+    setIsLoading(true);
+    // 異步獲取數據，模擬 API 調用
+    const fetchData = async () => {
+      // 實際應用中應從 API 獲取數據
+      const data = generateFinancialData(90); // 預設 3 個月數據
+      setFinancialData(data);
+      setIsLoading(false);
+    };
+    fetchData();
+  }, []); // 初始載入
   
   // 更新圖表類型
   const handleChartTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -197,6 +217,8 @@ export default function MarketOverviewPage() {
       ...chartSettings,
       timeframe: e.target.value,
     });
+    // 可以在這裡觸發重新獲取數據
+    // handleRefreshChart(); // 取消註釋以在時間區間改變時刷新數據
   };
 
   // 更新主圖指標
@@ -210,10 +232,18 @@ export default function MarketOverviewPage() {
   // 更新副圖選擇
   const handleSubChartChange = (e: React.ChangeEvent<HTMLSelectElement>, index: number) => {
     const newSubCharts = [...chartSettings.subCharts];
-    newSubCharts[index] = e.target.value;
+    // 檢查是否選擇了 "無"
+    if (e.target.value === '') {
+      // 如果選擇 "無"，則移除該位置的指標
+      newSubCharts.splice(index, 1);
+    } else {
+      // 否則更新或添加指標
+      newSubCharts[index] = e.target.value;
+    }
     setChartSettings({
       ...chartSettings,
-      subCharts: newSubCharts,
+      // 過濾掉可能因選擇 "無" 而產生的 undefined 值
+      subCharts: newSubCharts.filter(Boolean),
     });
   };
 
@@ -238,153 +268,21 @@ export default function MarketOverviewPage() {
       
       setFinancialData(generateFinancialData(days));
       setIsLoading(false);
-    }, 1000);
+    }, 500); // 縮短延遲
   };
   
-  // 自定義價格格式化函數
-  const formatPrice = (value: number) => {
-    return value.toLocaleString('zh-HK');
-  };
+  // // 移除 Recharts 相關的數據格式化函數
+  // const formatPrice = (value: number) => { ... };
+  // const formatDate = (dateStr: string) => { ... };
+  // const getLineChartData = () => { ... };
+  // const getAreaChartData = () => { ... };
+  // const getBarChartData = () => { ... };
+  // const getVolumeData = () => { ... };
+  // const getRSIData = () => { ... };
+  // const getMACDData = () => { ... };
   
-  // 自定義時間格式化函數
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return `${date.getMonth()+1}/${date.getDate()}`;
-  };
-  
-  // 針對線性圖表的數據變形
-  const getLineChartData = () => {
-    return financialData.map(item => ({
-      date: item.date,
-      close: item.close,
-      sma20: item.sma20,
-      sma50: item.sma50
-    }));
-  };
-  
-  // 針對面積圖表的數據變形
-  const getAreaChartData = () => {
-    return financialData.map(item => ({
-      date: item.date,
-      close: item.close
-    }));
-  };
-  
-  // 針對柱狀圖表的數據變形
-  const getBarChartData = () => {
-    return financialData.map(item => ({
-      date: item.date,
-      range: item.high - item.low,
-      close: item.close
-    }));
-  };
-  
-  // 針對成交量數據變形
-  const getVolumeData = () => {
-    return financialData.map(item => ({
-      date: item.date,
-      volume: item.volume,
-      upDown: item.close >= item.open ? 'up' : 'down'
-    }));
-  };
-
-  // 針對RSI數據變形
-  const getRSIData = () => {
-    return financialData.map(item => ({
-      date: item.date,
-      rsi: item.rsi
-    }));
-  };
-  
-  // 針對MACD數據變形
-  const getMACDData = () => {
-    return financialData.map(item => ({
-      date: item.date,
-      macd: item.macd,
-      signal: item.signal,
-      histogram: item.histogram
-    }));
-  };
-  
-  // 用於繪製不同類型的圖表
-  const renderMainChart = () => {
-    if (chartSettings.chartType === 'line') {
-      return (
-        <LineChart data={getLineChartData()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-          <XAxis dataKey="date" tickFormatter={formatDate} />
-          <YAxis tickFormatter={formatPrice} domain={['auto', 'auto']} />
-          <Tooltip
-            formatter={(value: number) => [formatPrice(value), '價格']}
-            labelFormatter={(label) => `日期: ${label}`} 
-          />
-          <Legend />
-          <Line type="monotone" dataKey="close" stroke="#8884d8" dot={false} name="收盤價" />
-          {chartSettings.mainIndicator === 'sma' && (
-            <>
-              <Line type="monotone" dataKey="sma20" stroke="#ff4500" dot={false} name="SMA20" />
-              <Line type="monotone" dataKey="sma50" stroke="#00bfff" dot={false} name="SMA50" />
-            </>
-          )}
-        </LineChart>
-      );
-    }
-    
-    if (chartSettings.chartType === 'area') {
-      return (
-        <AreaChart data={getAreaChartData()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-          <XAxis dataKey="date" tickFormatter={formatDate} />
-          <YAxis tickFormatter={formatPrice} domain={['auto', 'auto']} />
-          <Tooltip 
-            formatter={(value: number) => [formatPrice(value), '價格']}
-            labelFormatter={(label) => `日期: ${label}`}
-          />
-          <Legend />
-          <Area type="monotone" dataKey="close" stroke="#8884d8" fill="#8884d8" fillOpacity={0.3} name="收盤價" />
-        </AreaChart>
-      );
-    }
-    
-    if (chartSettings.chartType === 'bar') {
-      return (
-        <BarChart data={getBarChartData()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-          <XAxis dataKey="date" tickFormatter={formatDate} />
-          <YAxis tickFormatter={formatPrice} domain={['auto', 'auto']} />
-          <Tooltip 
-            formatter={(value: number) => [formatPrice(value), '價格']}
-            labelFormatter={(label) => `日期: ${label}`}
-          />
-          <Legend />
-          <Bar dataKey="close" fill="#8884d8" name="收盤價" />
-        </BarChart>
-      );
-    }
-    
-    // 蠟燭圖、OHLC圖、HLC圖 都用這個簡化版實現
-    return (
-      <ComposedChart data={financialData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-        <XAxis dataKey="date" tickFormatter={formatDate} />
-        <YAxis tickFormatter={formatPrice} domain={['auto', 'auto']} />
-        <Tooltip 
-          formatter={(value: number) => [formatPrice(value), '價格']}
-          labelFormatter={(label) => `日期: ${label}`}
-          contentStyle={{ backgroundColor: '#222', border: '1px solid #444' }}
-          itemStyle={{ color: '#fff' }}
-        />
-        <Legend />
-        <Bar dataKey="close" name="價格" fill="#26a69a" />
-        {chartSettings.mainIndicator === 'sma' && (
-          <>
-            <Line type="monotone" dataKey="sma20" stroke="#ff4500" dot={false} name="SMA20" />
-            <Line type="monotone" dataKey="sma50" stroke="#00bfff" dot={false} name="SMA50" />
-          </>
-        )}
-      </ComposedChart>
-    );
-  };
+  // // 移除 Recharts 的圖表渲染函數
+  // const renderMainChart = () => { ... };
 
   return (
     <div className="min-h-screen bg-[#0D1037] text-white pb-10">
@@ -484,7 +382,7 @@ export default function MarketOverviewPage() {
                 <label className="block mb-2 text-sm font-medium">副圖 {index + 1}</label>
                 <select
                   className="w-full p-2 bg-gray-700 rounded border border-gray-600 focus:ring-2 focus:ring-blue-500"
-                  value={chartSettings.subCharts[index] || ''}
+                  value={chartSettings.subCharts[index] || ''} // 確保空值處理
                   onChange={(e) => handleSubChartChange(e, index)}
                 >
                   <option value="">無</option>
@@ -495,7 +393,7 @@ export default function MarketOverviewPage() {
                       disabled={
                         // 如果指標已在其他副圖使用，且不是當前選擇的指標，則禁用
                         chartSettings.subCharts.includes(option.value) &&
-                        getSubChartIndex(option.value) !== index
+                        chartSettings.subCharts[index] !== option.value
                       }
                     >
                       {option.label}
@@ -518,81 +416,15 @@ export default function MarketOverviewPage() {
           </div>
         </div>
         
-        {/* 圖表顯示區域 - 使用 Recharts */}
+        {/* 圖表顯示區域 - 改用 ProfessionalChart */}
         <div className="mt-6">
-          <div className="w-full bg-[#0D1037] rounded-lg overflow-hidden">
-            <div className="p-4 bg-gray-800 rounded-lg mb-2">
-              <h3 className="text-xl mb-2">恆生指數 ({chartSettings.timeframe}) - {chartTypes.find(t => t.value === chartSettings.chartType)?.label}</h3>
-              <p className="text-sm text-gray-400">{mainIndicatorOptions.find(i => i.value === chartSettings.mainIndicator)?.label}</p>
+          {isLoading ? (
+            <div className="h-[600px] flex items-center justify-center text-white">
+              載入圖表中...
             </div>
-            
-            {/* 主圖表 */}
-            <div className="bg-gray-800 rounded-lg p-4 mb-4">
-              {isLoading ? (
-                <div className="h-[400px] flex items-center justify-center">
-                  <p>載入中...</p>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={400}>
-                  {renderMainChart()}
-                </ResponsiveContainer>
-              )}
-            </div>
-            
-            {/* 副圖 - RSI */}
-            {chartSettings.subCharts.includes('RSI') && (
-              <div className="bg-gray-800 rounded-lg p-4 mb-4">
-                <h4 className="text-sm mb-2">RSI(14)</h4>
-                <ResponsiveContainer width="100%" height={150}>
-                  <LineChart data={getRSIData()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                    <XAxis dataKey="date" tickFormatter={formatDate} />
-                    <YAxis domain={[0, 100]} ticks={[30, 50, 70]} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="rsi" stroke="#f44336" dot={false} />
-                    {/* 參考線 */}
-                    <CartesianGrid y={30} stroke="#990000" strokeDasharray="3 3" horizontal={false} />
-                    <CartesianGrid y={70} stroke="#000099" strokeDasharray="3 3" horizontal={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-            
-            {/* 副圖 - MACD */}
-            {chartSettings.subCharts.includes('MACD') && (
-              <div className="bg-gray-800 rounded-lg p-4 mb-4">
-                <h4 className="text-sm mb-2">MACD(12,26,9)</h4>
-                <ResponsiveContainer width="100%" height={150}>
-                  <ComposedChart data={getMACDData()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                    <XAxis dataKey="date" tickFormatter={formatDate} />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="histogram" fill="#8884d8" name="柱狀" />
-                    <Line type="monotone" dataKey="macd" stroke="#2196f3" dot={false} name="MACD" />
-                    <Line type="monotone" dataKey="signal" stroke="#ff9800" dot={false} name="Signal" />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-            
-            {/* 副圖 - 成交量 */}
-            {chartSettings.subCharts.includes('Volume') && (
-              <div className="bg-gray-800 rounded-lg p-4 mb-4">
-                <h4 className="text-sm mb-2">成交量</h4>
-                <ResponsiveContainer width="100%" height={150}>
-                  <BarChart data={getVolumeData()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-                    <XAxis dataKey="date" tickFormatter={formatDate} />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="volume" name="成交量" fill="#26a69a" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
+          ) : (
+            <ProfessionalChart settings={chartSettings} data={financialData} />
+          )}
         </div>
         
         {/* 市場摘要資訊 */}
