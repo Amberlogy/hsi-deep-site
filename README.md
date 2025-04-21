@@ -99,7 +99,7 @@
 
 6. 創建 .npmrc 文件來設置 npm 配置:
 
-   ```
+   ```ini
    legacy-peer-deps=true
    prefer-offline=true
    force=true
