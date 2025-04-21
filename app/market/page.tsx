@@ -252,7 +252,7 @@ export default function MarketPage() {
         
         {/* 圖表顯示區域 */}
         <div className="mt-6">
-          <OverviewChart data={getFakeChartData()} settings={chartSettings} />
+          <OverviewChart />
         </div>
         
         {/* 市場摘要資訊 */}
