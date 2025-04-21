@@ -13,6 +13,11 @@ import {
   CrosshairMode,
   LineStyle,
   PriceScaleMode,
+  CandlestickSeries,
+  LineSeries,
+  AreaSeries,
+  BarSeries,
+  SeriesType,
 } from 'lightweight-charts';
 import { getFakeChartData, ChartDataPoint } from '@/data/fakeChartData';
 import { drawRSI } from '@/utils/chartHelpers/drawRSI';
@@ -30,6 +35,7 @@ export interface ChartSettings {
 // 元件屬性
 interface OverviewChartProps {
   settings: ChartSettings;
+  data?: ChartDataPoint[]; // 添加可選的數據屬性
 }
 
 // 圖表顏色配置
@@ -54,7 +60,7 @@ const chartColors = {
 };
 
 // 主圖表組件
-const OverviewChart: React.FC<OverviewChartProps> = ({ settings }) => {
+const OverviewChart: React.FC<OverviewChartProps> = ({ settings, data }) => {
   // 客戶端渲染檢查
   const [isClient, setIsClient] = useState(false);
   const [chartError, setChartError] = useState<Error | null>(null);
@@ -72,13 +78,13 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ settings }) => {
   const volumeChartApiRef = useRef<IChartApi | null>(null);
   
   // 圖表系列引用
-  const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
-  const areaSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
-  const lineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
-  const barSeriesRef = useRef<ISeriesApi<'Bar'> | null>(null);
-  const ohlcSeriesRef = useRef<ISeriesApi<'OHLC'> | null>(null);
-  const sma20SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
-  const sma50SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const areaSeriesRef = useRef<ISeriesApi<"Area"> | null>(null);
+  const lineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const barSeriesRef = useRef<ISeriesApi<"Bar"> | null>(null);
+  const ohlcSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const sma20SeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const sma50SeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   
   // 在客戶端環境中設置標誌
   useEffect(() => {
@@ -115,7 +121,7 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ settings }) => {
         }
         
         // 獲取數據
-        const chartData = getFakeChartData();
+        const chartData = data || getFakeChartData();
         
         // 設置主圖表高度
         const mainChartHeight = 400;
@@ -178,7 +184,7 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ settings }) => {
         // 根據選定的圖表類型繪製
         switch (settings.chartType) {
           case 'candlestick':
-            const candlestickSeries = chart.addCandlestickSeries({
+            const candlestickSeries = chart.addSeries(CandlestickSeries, {
               upColor: chartColors.upColor,
               downColor: chartColors.downColor,
               borderUpColor: chartColors.borderUpColor,
@@ -191,7 +197,7 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ settings }) => {
             break;
           
           case 'line':
-            const lineSeries = chart.addLineSeries({
+            const lineSeries = chart.addSeries(LineSeries, {
               color: chartColors.sma20,
               lineWidth: 2,
             });
@@ -207,7 +213,7 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ settings }) => {
             break;
           
           case 'area':
-            const areaSeries = chart.addAreaSeries({
+            const areaSeries = chart.addSeries(AreaSeries, {
               topColor: `${chartColors.sma20}50`,
               bottomColor: `${chartColors.sma20}00`,
               lineColor: chartColors.sma20,
@@ -225,7 +231,7 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ settings }) => {
             break;
           
           case 'bar':
-            const barSeries = chart.addBarSeries({
+            const barSeries = chart.addSeries(BarSeries, {
               upColor: chartColors.upColor,
               downColor: chartColors.downColor,
             });
@@ -236,7 +242,7 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ settings }) => {
           
           case 'ohlc':
           case 'hlc':
-            const ohlcSeries = chart.addCandlestickSeries({
+            const ohlcSeries = chart.addSeries(CandlestickSeries, {
               upColor: 'rgba(0, 0, 0, 0)',  // 透明填充
               downColor: 'rgba(0, 0, 0, 0)',
               borderUpColor: chartColors.upColor,
@@ -268,7 +274,7 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ settings }) => {
             value: item.sma20,
           }));
           
-          const sma20Series = chart.addLineSeries({
+          const sma20Series = chart.addSeries(LineSeries, {
             color: chartColors.sma20,
             lineWidth: 1,
             title: 'SMA20',
@@ -282,7 +288,7 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ settings }) => {
             value: item.sma50,
           }));
           
-          const sma50Series = chart.addLineSeries({
+          const sma50Series = chart.addSeries(LineSeries, {
             color: chartColors.sma50,
             lineWidth: 1,
             title: 'SMA50',
@@ -319,10 +325,36 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ settings }) => {
             // 將副圖的十字線綁定到主圖表
             chart.subscribeCrosshairMove(param => {
               if (param && param.time && subChart) {
-                subChart.setCrosshairPosition(
-                  param.time as UTCTimestamp, 
-                  param.point?.y || 0
-                );
+                // 處理十字線同步
+                if (param.seriesData && param.seriesData.size > 0) {
+                  // 獲取第一個系列及其數據
+                  const firstItem: {
+                    series: ISeriesApi<any> | null;
+                    price: number;
+                  } = { series: null, price: 0 };
+                  
+                  param.seriesData.forEach((data, series) => {
+                    if (firstItem.series === null) {
+                      firstItem.series = series;
+                      
+                      // 根據不同數據類型安全地獲取價格值
+                      if ('value' in data) {
+                        firstItem.price = data.value;
+                      } else if ('close' in data) {
+                        firstItem.price = data.close;
+                      }
+                    }
+                  });
+                  
+                  // 設置十字線位置
+                  if (firstItem.series) {
+                    subChart.setCrosshairPosition(
+                      firstItem.price,
+                      param.time,
+                      firstItem.series
+                    );
+                  }
+                }
               }
             });
           }
@@ -383,7 +415,7 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ settings }) => {
         volumeChartApiRef.current = null;
       }
     };
-  }, [isClient, settings]);
+  }, [isClient, settings, data]);
   
   // 如果不是客戶端環境，返回空白區域
   if (!isClient) return <div className="w-full h-[600px] bg-[#0D1037]"></div>;
@@ -397,9 +429,9 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ settings }) => {
           <p>{chartError.message}</p>
           <button 
             className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded"
-            onClick={() => setChartError(null)}
+            onClick={() => window.location.reload()}
           >
-            重試
+            重新載入
           </button>
         </div>
       </div>
@@ -407,21 +439,20 @@ const OverviewChart: React.FC<OverviewChartProps> = ({ settings }) => {
   }
   
   return (
-    <div className="flex flex-col w-full bg-[#0D1037] rounded-lg overflow-hidden">
-      {/* 主圖表 */}
-      <div className="w-full" ref={chartContainerRef} />
+    <div className="w-full bg-[#0D1037] rounded-lg overflow-hidden">
+      <div ref={chartContainerRef} className="w-full"></div>
       
-      {/* 副圖表 - 根據設定顯示 */}
+      {/* 副圖表區域 */}
       {settings.subCharts.includes('RSI') && (
-        <div className="w-full mt-1" ref={rsiChartRef} />
+        <div ref={rsiChartRef} className="w-full mt-1"></div>
       )}
       
       {settings.subCharts.includes('MACD') && (
-        <div className="w-full mt-1" ref={macdChartRef} />
+        <div ref={macdChartRef} className="w-full mt-1"></div>
       )}
       
       {settings.subCharts.includes('Volume') && (
-        <div className="w-full mt-1" ref={volumeChartRef} />
+        <div ref={volumeChartRef} className="w-full mt-1"></div>
       )}
     </div>
   );
