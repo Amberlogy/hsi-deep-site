@@ -1,0 +1,39 @@
+# 模組: GitHub Actions 自動部署模組
+# 輸入: push 事件 (main 分支)
+# 輸出: 專案部署到 Vercel production 環境
+# 測試方式: 將程式碼推送至 main 分支後，確認 Actions 是否執行成功並檢查網站是否更新
+
+name: 部署到 Vercel
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: 自動部署到 Vercel
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 檢出程式碼
+        uses: actions/checkout@v3
+
+      - name: 設定 Node.js 環境
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: 安裝相依套件
+        run: npm install
+
+      - name: 建置專案
+        run: npm run build
+
+      - name: 安裝 Vercel CLI
+        run: npm install -g vercel
+
+      - name: 部署到 Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel --prod --confirm --token $VERCEL_TOKEN 
