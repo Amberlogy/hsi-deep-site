@@ -12,7 +12,7 @@
 
 ## 線上演示
 
-訪問我們的線上演示網站：[HSI深度分析平台](https://hsi-deep-site-6wboed42h-ambers-projects-242e116b.vercel.app)
+訪問我們的線上演示網站：[HSI深度分析平台](https://hsi-deep-site-agnblz4qk-ambers-projects-242e116b.vercel.app)
 
 ## 安裝與運行
 
@@ -77,12 +77,14 @@
    ```json
    {
      "version": 2,
+     "buildCommand": "npm install --legacy-peer-deps && npm run build",
      "builds": [
        {
          "src": "package.json",
          "use": "@vercel/next",
          "config": {
-           "installCommand": "npm install --force"
+           "installCommand": "npm install --legacy-peer-deps",
+           "nodeVersion": "20.x"
          }
        }
      ]
@@ -93,6 +95,14 @@
 
    ```js
    transpilePackages: ['recharts']
+   ```
+
+6. 創建 .npmrc 文件來設置 npm 配置:
+
+   ```
+   legacy-peer-deps=true
+   prefer-offline=true
+   force=true
    ```
 
 ## 頁面結構
