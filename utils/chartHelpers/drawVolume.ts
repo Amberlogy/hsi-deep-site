@@ -2,7 +2,7 @@
 // 輸入: 圖表實例、成交量數據、容器ID
 // 輸出: 繪製完成的成交量圖表
 
-import { IChartApi, LineStyle, createChart, ISeriesApi, HistogramData } from 'lightweight-charts';
+import { IChartApi, LineStyle, createChart, ISeriesApi, HistogramData, HistogramSeries, LineSeries, Time } from 'lightweight-charts';
 import { ChartDataPoint } from '@/data/fakeChartData';
 
 interface VolumeDrawOptions {
@@ -88,14 +88,14 @@ export function drawVolume(
     const isUp = index === 0 ? true : item.close >= data[index - 1].close;
     
     return {
-      time: item.date,
+      time: item.date as Time,
       value: item.volume,
       color: isUp ? mergedOptions.colors!.up! : mergedOptions.colors!.down!
     };
   });
 
   // 添加成交量柱狀圖
-  const volumeSeries = chart.addHistogramSeries({
+  const volumeSeries = chart.addSeries(HistogramSeries, {
     priceFormat: {
       type: 'volume',
       precision: 0,
@@ -118,13 +118,13 @@ export function drawVolume(
       }
       
       avgVolumeData.push({
-        time: data[i].date,
+        time: data[i].date as Time,
         value: sum / avgPeriod
       });
     }
     
     // 添加平均成交量線
-    const avgVolumeSeries = chart.addLineSeries({
+    const avgVolumeSeries = chart.addSeries(LineSeries, {
       color: 'rgba(255, 255, 255, 0.5)',
       lineWidth: 1,
       priceFormat: {

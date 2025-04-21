@@ -2,7 +2,7 @@
 // 輸入: 圖表實例、MACD數據、容器ID
 // 輸出: 繪製完成的MACD圖表
 
-import { IChartApi, LineStyle, createChart, ISeriesApi, HistogramData } from 'lightweight-charts';
+import { IChartApi, LineStyle, createChart, ISeriesApi, HistogramData, LineSeries, HistogramSeries, Time, SeriesType } from 'lightweight-charts';
 import { ChartDataPoint } from '@/data/fakeChartData';
 
 interface MACDDrawOptions {
@@ -90,17 +90,17 @@ export function drawMACD(
 
   // 格式化MACD數據
   const macdLineData = data.map(item => ({
-    time: item.date,
+    time: item.date as Time,
     value: item.macd
   }));
 
   const signalLineData = data.map(item => ({
-    time: item.date,
+    time: item.date as Time,
     value: item.macdSignal
   }));
 
   const histogramData: HistogramData[] = data.map(item => ({
-    time: item.date,
+    time: item.date as Time,
     value: item.macdHistogram,
     color: item.macdHistogram >= 0 
       ? mergedOptions.colors!.histogramUp! 
@@ -108,7 +108,7 @@ export function drawMACD(
   }));
 
   // 添加MACD線
-  const macdSeries = chart.addLineSeries({
+  const macdSeries = chart.addSeries(LineSeries, {
     color: mergedOptions.colors!.macd!,
     lineWidth: 2,
     priceFormat: {
@@ -121,7 +121,7 @@ export function drawMACD(
   macdSeries.setData(macdLineData);
 
   // 添加Signal線
-  const signalSeries = chart.addLineSeries({
+  const signalSeries = chart.addSeries(LineSeries, {
     color: mergedOptions.colors!.signal!,
     lineWidth: 2,
     priceFormat: {
@@ -134,7 +134,7 @@ export function drawMACD(
   signalSeries.setData(signalLineData);
 
   // 添加柱狀圖
-  const histogramSeries = chart.addHistogramSeries({
+  const histogramSeries = chart.addSeries(HistogramSeries, {
     priceFormat: {
       type: 'price',
       precision: 2,
@@ -145,7 +145,7 @@ export function drawMACD(
   histogramSeries.setData(histogramData);
 
   // 添加零線
-  const zeroLineSeries = chart.addLineSeries({
+  const zeroLineSeries = chart.addSeries(LineSeries, {
     color: 'rgba(255, 255, 255, 0.3)',
     lineWidth: 1,
     lineStyle: LineStyle.Dashed,
@@ -160,7 +160,7 @@ export function drawMACD(
   
   // 設置零線數據
   const zeroLineData = data.map(item => ({
-    time: item.date,
+    time: item.date as Time,
     value: 0
   }));
   

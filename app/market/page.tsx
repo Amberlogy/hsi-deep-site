@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { getFakeChartData } from '@/data/fakeChartData';
-import type { ChartSettings } from '@/components/Chart/OverviewChart';
+import type { ChartSettings } from '@/components/Chart/ProfessionalChart';
 
 // 客戶端動態導入圖表組件，禁用SSR
 const OverviewChart = dynamic(

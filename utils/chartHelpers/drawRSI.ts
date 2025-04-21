@@ -2,154 +2,158 @@
 // 輸入: 圖表實例、RSI數據、容器ID
 // 輸出: 繪製完成的RSI圖表
 
-import { IChartApi, LineStyle, createChart, ISeriesApi, LineData } from 'lightweight-charts';
+import { IChartApi, LineStyle, createChart, ISeriesApi, LineData, Time, SeriesOptionsMap, LineSeries, UTCTimestamp, DeepPartial, ChartOptions, PriceScaleOptions, SeriesType } from 'lightweight-charts';
 import { ChartDataPoint } from '@/data/fakeChartData';
 
-interface RSIDrawOptions {
-  height?: number;
-  colors?: {
-    line?: string;
-    overSold?: string;
-    overBought?: string;
-    background?: string;
-    text?: string;
-  };
-  levels?: {
-    overBought?: number;
-    overSold?: number;
-  };
+interface RSIChartColors {
+  background: string;
+  text: string;
+  line?: string;
+  overbought?: string;
+  oversold?: string;
 }
 
-// 默認配置
-const defaultOptions: RSIDrawOptions = {
-  height: 150,
-  colors: {
-    line: '#f44336',        // RSI線顏色
-    overSold: '#990000',    // 超賣區域顏色
-    overBought: '#000099',  // 超買區域顏色
-    background: '#131722',  // 背景顏色
-    text: '#d1d4dc',        // 文字顏色
-  },
-  levels: {
-    overBought: 70,
-    overSold: 30,
-  }
-};
+interface RSIOptions {
+  colors: RSIChartColors;
+  height?: number;
+  overboughtLevel?: number;
+  oversoldLevel?: number;
+}
+
+interface RSIResult {
+  chart: IChartApi;
+}
 
 /**
- * 繪製RSI指標
- * @param container 容器ID或DOM元素
- * @param data 圖表數據
- * @param options 配置選項
- * @returns 返回圖表實例和繪製的系列
+ * 繪製 RSI 指標圖表
+ * @param container - RSI 圖表容器元素
+ * @param data - 圖表數據
+ * @param options - 圖表配置選項
+ * @returns 包含圖表實例的結果對象
  */
 export function drawRSI(
-  container: string | HTMLElement,
+  container: HTMLElement,
   data: ChartDataPoint[],
-  options: RSIDrawOptions = {}
-): { chart: IChartApi; series: ISeriesApi<"Line"> } {
-  // 合併選項
-  const mergedOptions = {
+  options: RSIOptions
+): RSIResult {
+  // 預設配置
+  const defaultOptions: Required<RSIOptions> = {
+    colors: {
+      background: '#131722',
+      text: '#d1d4dc',
+      line: '#f44336',
+      overbought: 'rgba(242, 54, 69, 0.2)',
+      oversold: 'rgba(8, 153, 129, 0.2)'
+    },
+    height: 150,
+    overboughtLevel: 70,
+    oversoldLevel: 30
+  };
+  
+  // 合併用戶選項與預設選項
+  const mergedOpts = {
     ...defaultOptions,
     ...options,
-    colors: { ...defaultOptions.colors, ...options.colors },
-    levels: { ...defaultOptions.levels, ...options.levels },
+    colors: {
+      ...defaultOptions.colors,
+      ...options.colors
+    }
   };
-
-  // 創建圖表
-  const chart = createChart(container, {
-    height: mergedOptions.height,
+  
+  // 圖表配置
+  const chartOptions: DeepPartial<ChartOptions> = {
+    height: mergedOpts.height,
     layout: {
-      background: { color: mergedOptions.colors!.background! },
-      textColor: mergedOptions.colors!.text!,
-    },
-    rightPriceScale: {
-      scaleMargins: {
-        top: 0.1,
-        bottom: 0.1,
-      },
-      borderVisible: false,
-    },
-    timeScale: {
-      borderVisible: false,
-      fixLeftEdge: true,
-      fixRightEdge: true,
+      background: { color: mergedOpts.colors.background },
+      textColor: mergedOpts.colors.text,
     },
     grid: {
-      horzLines: {
-        color: 'rgba(42, 46, 57, 0.2)',
-        style: LineStyle.Dotted,
-      },
       vertLines: {
         color: 'rgba(42, 46, 57, 0.2)',
         style: LineStyle.Dotted,
       },
+      horzLines: {
+        color: 'rgba(42, 46, 57, 0.2)',
+        style: LineStyle.Dotted,
+      },
     },
-    crosshair: {
-      mode: 0, // 設置為0，因為主圖表會處理十字線
+    rightPriceScale: {
+      borderColor: 'rgba(197, 203, 206, 0.4)',
     },
-  });
-
-  // 格式化RSI數據
-  const rsiData: LineData[] = data.map(item => ({
-    time: new Date(item.date).getTime() / 1000,
-    value: item.rsi
-  }));
-
-  // 添加RSI線
-  const rsiSeries = chart.addLineSeries({
-    color: mergedOptions.colors!.line!,
+    timeScale: {
+      borderColor: 'rgba(197, 203, 206, 0.4)',
+      timeVisible: true,
+      secondsVisible: false,
+    }
+  };
+  
+  // 建立圖表
+  const chart = createChart(container, chartOptions);
+  
+  // 設置 RSI 尺度範圍 (0-100)
+  chart.priceScale('right').applyOptions({
+    autoScale: false,
+    scaleMargins: {
+      top: 0.1,
+      bottom: 0.1,
+    },
+    entireTextOnly: true,
+    minimumHeight: 1,
+    mode: 2, // PriceScaleMode.Percentage
+  } as DeepPartial<PriceScaleOptions>);
+  
+  // 建立 RSI 數據
+  const rsiData = data
+    .filter(item => item.rsi !== undefined)
+    .map(item => ({
+      time: new Date(item.date).getTime() / 1000 as UTCTimestamp,
+      value: item.rsi || 50, // 默認值
+    }));
+  
+  // 添加 RSI 線
+  const rsiSeries = chart.addSeries(LineSeries, {
+    color: mergedOpts.colors.line || '#f44336',
     lineWidth: 2,
-    priceFormat: {
-      type: 'price',
-      precision: 2,
-      minMove: 0.01,
-    },
-    title: 'RSI(14)',
+    title: 'RSI-14',
+    priceLineVisible: false,
+    lastValueVisible: true,
   });
   rsiSeries.setData(rsiData);
-
-  // 添加超買/超賣水平線
-  const overBoughtLine = chart.addLineSeries({
-    color: mergedOptions.colors!.overBought!,
+  
+  // 添加超買區域水平線
+  const overboughtSeries = chart.addSeries(LineSeries, {
+    color: 'rgba(197, 203, 206, 0.4)',
     lineWidth: 1,
     lineStyle: LineStyle.Dashed,
-    priceFormat: {
-      type: 'price',
-      precision: 0,
-      minMove: 1,
-    },
+    priceLineVisible: false,
     lastValueVisible: false,
-    title: '',
   });
+  overboughtSeries.setData([
+    { time: rsiData[0].time, value: mergedOpts.overboughtLevel },
+    { time: rsiData[rsiData.length - 1].time, value: mergedOpts.overboughtLevel },
+  ]);
   
-  const overSoldLine = chart.addLineSeries({
-    color: mergedOptions.colors!.overSold!,
+  // 添加超賣區域水平線
+  const oversoldSeries = chart.addSeries(LineSeries, {
+    color: 'rgba(197, 203, 206, 0.4)',
     lineWidth: 1,
     lineStyle: LineStyle.Dashed,
-    priceFormat: {
-      type: 'price',
-      precision: 0,
-      minMove: 1,
-    },
+    priceLineVisible: false,
     lastValueVisible: false,
-    title: '',
   });
-
-  // 設置超買/超賣水平線數據
-  const horizontalLinesData = data.map(item => ({
-    time: new Date(item.date).getTime() / 1000,
-  }));
-
-  overBoughtLine.setData(horizontalLinesData.map(item => ({
-    ...item,
-    value: mergedOptions.levels!.overBought!
-  })));
+  oversoldSeries.setData([
+    { time: rsiData[0].time, value: mergedOpts.oversoldLevel },
+    { time: rsiData[rsiData.length - 1].time, value: mergedOpts.oversoldLevel },
+  ]);
   
-  overSoldLine.setData(horizontalLinesData.map(item => ({
-    ...item,
-    value: mergedOptions.levels!.overSold!
-  })));
-
-  return { chart, series: rsiSeries };
+  // 調整圖表大小以適應容器
+  const handleResize = () => {
+    const { clientWidth } = container;
+    chart.resize(clientWidth, mergedOpts.height);
+  };
+  
+  // 初始自適應
+  handleResize();
+  
+  return { chart };
 } 

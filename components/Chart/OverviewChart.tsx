@@ -1,461 +1,444 @@
 'use client';
 
-// 專業金融圖表元件 - 支援多種圖表類型和技術指標
+// 專業金融圖表元件 - 符合 AASTOCKS 風格
 // 輸入: 圖表設定與資料
 // 輸出: 互動式金融圖表
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { 
   createChart, 
-  IChartApi, 
-  ISeriesApi, 
-  UTCTimestamp, 
-  CrosshairMode,
   LineStyle,
-  PriceScaleMode,
   CandlestickSeries,
   LineSeries,
-  AreaSeries,
-  BarSeries,
-  SeriesType,
+  CrosshairMode,
+  IChartApi,
+  HistogramSeries
 } from 'lightweight-charts';
 import { getFakeChartData, ChartDataPoint } from '@/data/fakeChartData';
-import { drawRSI } from '@/utils/chartHelpers/drawRSI';
-import { drawMACD } from '@/utils/chartHelpers/drawMACD';
-import { drawVolume } from '@/utils/chartHelpers/drawVolume';
+import { ChartSettings } from './ProfessionalChart';
 
-// 圖表設定類型
-export interface ChartSettings {
-  chartType: 'candlestick' | 'bar' | 'line' | 'area' | 'ohlc' | 'hlc';
-  timeframe: string;
-  mainIndicator: string;
-  subCharts: string[];
-}
-
-// 元件屬性
 interface OverviewChartProps {
-  settings: ChartSettings;
-  data?: ChartDataPoint[]; // 添加可選的數據屬性
+  settings?: ChartSettings;
+  data?: ChartDataPoint[];
 }
 
-// 圖表顏色配置
-const chartColors = {
-  backgroundColor: '#0D1037', // 深藍背景
-  textColor: '#d1d4dc',
-  upColor: '#26a69a',       // 漲綠
-  downColor: '#ef5350',     // 跌紅
-  borderUpColor: '#26a69a', 
-  borderDownColor: '#ef5350',
-  wickUpColor: '#26a69a',
-  wickDownColor: '#ef5350',
-  rsiLine: '#f44336',       // RSI紅線
-  macdLine: '#2196f3',      // MACD快線藍色
-  macdSignalLine: '#ff9800',// MACD慢線橙色
-  macdHistogramUp: '#26a69a',// MACD柱狀圖上漲
-  macdHistogramDown: '#ef5350',// MACD柱狀圖下跌
-  volumeUp: '#26a69a',      // 成交量上漲
-  volumeDown: '#ef5350',    // 成交量下跌
-  sma20: '#f44336',         // 20日均線紅色
-  sma50: '#2196f3'          // 50日均線藍色
-};
-
-// 主圖表組件
-const OverviewChart: React.FC<OverviewChartProps> = ({ settings, data }) => {
-  // 客戶端渲染檢查
-  const [isClient, setIsClient] = useState(false);
-  const [chartError, setChartError] = useState<Error | null>(null);
-  
-  // 圖表參考
+export default function OverviewChart({ data, settings }: OverviewChartProps = {}) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const rsiChartRef = useRef<HTMLDivElement>(null);
-  const macdChartRef = useRef<HTMLDivElement>(null);
-  const volumeChartRef = useRef<HTMLDivElement>(null);
-  
-  // 圖表實例引用
+  const rsiContainerRef = useRef<HTMLDivElement>(null);
+  const macdContainerRef = useRef<HTMLDivElement>(null);
+  const volumeContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const rsiChartApiRef = useRef<IChartApi | null>(null);
-  const macdChartApiRef = useRef<IChartApi | null>(null);
-  const volumeChartApiRef = useRef<IChartApi | null>(null);
-  
-  // 圖表系列引用
-  const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
-  const areaSeriesRef = useRef<ISeriesApi<"Area"> | null>(null);
-  const lineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
-  const barSeriesRef = useRef<ISeriesApi<"Bar"> | null>(null);
-  const ohlcSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
-  const sma20SeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
-  const sma50SeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
-  
-  // 在客戶端環境中設置標誌
+  const rsiChartRef = useRef<IChartApi | null>(null);
+  const macdChartRef = useRef<IChartApi | null>(null);
+  const volumeChartRef = useRef<IChartApi | null>(null);
+
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-  
-  // 初始化並繪製圖表
-  useEffect(() => {
-    if (!isClient) return;
+    if (!chartContainerRef.current || !rsiContainerRef.current || 
+        !macdContainerRef.current || !volumeContainerRef.current) return;
+
+    const chartData = data || getFakeChartData();
     
-    const initializeCharts = async () => {
-      try {
-        // 清除現有圖表
-        if (chartRef.current) {
-          chartRef.current.remove();
-          chartRef.current = null;
-        }
-        if (rsiChartApiRef.current) {
-          rsiChartApiRef.current.remove();
-          rsiChartApiRef.current = null;
-        }
-        if (macdChartApiRef.current) {
-          macdChartApiRef.current.remove();
-          macdChartApiRef.current = null;
-        }
-        if (volumeChartApiRef.current) {
-          volumeChartApiRef.current.remove();
-          volumeChartApiRef.current = null;
-        }
-        
-        // 確保容器存在
-        if (!chartContainerRef.current) {
-          return;
-        }
-        
-        // 獲取數據
-        const chartData = data || getFakeChartData();
-        
-        // 設置主圖表高度
-        const mainChartHeight = 400;
-        
-        // 建立主圖表
-        const chart = createChart(chartContainerRef.current, {
-          height: mainChartHeight,
+    // 主圖表配置
+    const mainChart = createChart(chartContainerRef.current, {
           layout: {
-            background: { color: chartColors.backgroundColor },
-            textColor: chartColors.textColor,
+        background: { color: '#0D1037' },
+        textColor: 'white',
           },
           grid: {
-            vertLines: {
-              color: 'rgba(42, 46, 57, 0.2)',
-              style: LineStyle.Dotted,
-            },
-            horzLines: {
-              color: 'rgba(42, 46, 57, 0.2)',
-              style: LineStyle.Dotted,
-            },
-          },
-          rightPriceScale: {
-            borderColor: 'rgba(197, 203, 206, 0.4)',
-            mode: PriceScaleMode.Normal,
-          },
+        vertLines: { color: '#444' },
+        horzLines: { color: '#444' },
+      },
+      width: chartContainerRef.current.clientWidth,
+      height: 400,
           timeScale: {
-            borderColor: 'rgba(197, 203, 206, 0.4)',
+        borderColor: '#71649C',
             timeVisible: true,
             secondsVisible: false,
           },
+      rightPriceScale: { borderColor: '#71649C' },
           crosshair: {
             mode: CrosshairMode.Normal,
             vertLine: {
-              color: 'rgba(197, 203, 206, 0.4)',
               width: 1,
+          color: '#aaa',
               style: LineStyle.Solid,
-              labelBackgroundColor: '#0D1037',
             },
             horzLine: {
-              color: 'rgba(197, 203, 206, 0.4)',
+          color: '#aaa',
+          style: LineStyle.Solid,
               width: 1,
-              style: LineStyle.Solid,
-              labelBackgroundColor: '#0D1037',
             },
           },
         });
         
-        // 保存圖表實例
-        chartRef.current = chart;
-        
-        // 格式化數據
-        const formattedData = chartData.map(item => ({
-          time: new Date(item.date).getTime() / 1000 as UTCTimestamp,
+    chartRef.current = mainChart;
+
+    // 陰陽燭圖
+    const candleSeries = mainChart.addSeries(CandlestickSeries, {
+      upColor: '#00ff00',
+      downColor: '#ff0000',
+      borderVisible: false,
+      wickUpColor: '#00ff00',
+      wickDownColor: '#ff0000',
+    });
+
+    const candleData = chartData.map(item => ({
+      time: item.date as any,
           open: item.open,
           high: item.high,
           low: item.low,
           close: item.close,
         }));
         
-        // 根據選定的圖表類型繪製
-        switch (settings.chartType) {
-          case 'candlestick':
-            const candlestickSeries = chart.addSeries(CandlestickSeries, {
-              upColor: chartColors.upColor,
-              downColor: chartColors.downColor,
-              borderUpColor: chartColors.borderUpColor,
-              borderDownColor: chartColors.borderDownColor,
-              wickUpColor: chartColors.wickUpColor,
-              wickDownColor: chartColors.wickDownColor,
-            });
-            candlestickSeries.setData(formattedData);
-            candlestickSeriesRef.current = candlestickSeries;
-            break;
-          
-          case 'line':
-            const lineSeries = chart.addSeries(LineSeries, {
-              color: chartColors.sma20,
-              lineWidth: 2,
-            });
-            
-            // 線圖使用收盤價
-            const lineData = chartData.map(item => ({
-              time: new Date(item.date).getTime() / 1000 as UTCTimestamp,
-              value: item.close,
-            }));
-            
-            lineSeries.setData(lineData);
-            lineSeriesRef.current = lineSeries;
-            break;
-          
-          case 'area':
-            const areaSeries = chart.addSeries(AreaSeries, {
-              topColor: `${chartColors.sma20}50`,
-              bottomColor: `${chartColors.sma20}00`,
-              lineColor: chartColors.sma20,
-              lineWidth: 2,
-            });
-            
-            // 區域圖使用收盤價
-            const areaData = chartData.map(item => ({
-              time: new Date(item.date).getTime() / 1000 as UTCTimestamp,
-              value: item.close,
-            }));
-            
-            areaSeries.setData(areaData);
-            areaSeriesRef.current = areaSeries;
-            break;
-          
-          case 'bar':
-            const barSeries = chart.addSeries(BarSeries, {
-              upColor: chartColors.upColor,
-              downColor: chartColors.downColor,
-            });
-            
-            barSeries.setData(formattedData);
-            barSeriesRef.current = barSeries;
-            break;
-          
-          case 'ohlc':
-          case 'hlc':
-            const ohlcSeries = chart.addSeries(CandlestickSeries, {
-              upColor: 'rgba(0, 0, 0, 0)',  // 透明填充
-              downColor: 'rgba(0, 0, 0, 0)',
-              borderUpColor: chartColors.upColor,
-              borderDownColor: chartColors.downColor,
-              wickUpColor: chartColors.wickUpColor,
-              wickDownColor: chartColors.wickDownColor,
-            });
-            
-            // HLC模式下，開盤價設為高低價的中間值
-            if (settings.chartType === 'hlc') {
-              const hlcData = formattedData.map(item => ({
-                ...item,
-                open: (item.high + item.low) / 2,
-              }));
-              ohlcSeries.setData(hlcData);
-            } else {
-              ohlcSeries.setData(formattedData);
-            }
-            
-            ohlcSeriesRef.current = ohlcSeries;
-            break;
-        }
-        
-        // 添加主圖指標
-        if (settings.mainIndicator === 'sma') {
-          // 添加20日均線
-          const sma20Data = chartData.map(item => ({
-            time: new Date(item.date).getTime() / 1000 as UTCTimestamp,
-            value: item.sma20,
-          }));
-          
-          const sma20Series = chart.addSeries(LineSeries, {
-            color: chartColors.sma20,
-            lineWidth: 1,
-            title: 'SMA20',
-          });
-          sma20Series.setData(sma20Data);
-          sma20SeriesRef.current = sma20Series;
-          
-          // 添加50日均線
-          const sma50Data = chartData.map(item => ({
-            time: new Date(item.date).getTime() / 1000 as UTCTimestamp,
-            value: item.sma50,
-          }));
-          
-          const sma50Series = chart.addSeries(LineSeries, {
-            color: chartColors.sma50,
-            lineWidth: 1,
-            title: 'SMA50',
-          });
-          sma50Series.setData(sma50Data);
-          sma50SeriesRef.current = sma50Series;
-        }
-        
-        // 添加副圖
-        const subCharts = settings.subCharts;
-        const chartElements = [
-          { id: 'RSI', ref: rsiChartRef, drawFn: drawRSI, apiRef: rsiChartApiRef },
-          { id: 'MACD', ref: macdChartRef, drawFn: drawMACD, apiRef: macdChartApiRef },
-          { id: 'Volume', ref: volumeChartRef, drawFn: drawVolume, apiRef: volumeChartApiRef },
-        ];
-        
-        for (const element of chartElements) {
-          if (subCharts.includes(element.id) && element.ref.current) {
-            const { chart: subChart } = element.drawFn(element.ref.current, chartData, {
-              colors: {
-                background: chartColors.backgroundColor,
-                text: chartColors.textColor,
-              }
-            });
-            element.apiRef.current = subChart;
-            
-            // 將副圖的時間軸綁定到主圖表
-            chart.timeScale().subscribeVisibleTimeRangeChange(timeRange => {
-              if (timeRange && subChart) {
-                subChart.timeScale().setVisibleRange(timeRange);
-              }
-            });
-            
-            // 將副圖的十字線綁定到主圖表
-            chart.subscribeCrosshairMove(param => {
-              if (param && param.time && subChart) {
-                // 處理十字線同步
-                if (param.seriesData && param.seriesData.size > 0) {
-                  // 獲取第一個系列及其數據
-                  const firstItem: {
-                    series: ISeriesApi<any> | null;
-                    price: number;
-                  } = { series: null, price: 0 };
-                  
-                  param.seriesData.forEach((data, series) => {
-                    if (firstItem.series === null) {
-                      firstItem.series = series;
-                      
-                      // 根據不同數據類型安全地獲取價格值
-                      if ('value' in data) {
-                        firstItem.price = data.value;
-                      } else if ('close' in data) {
-                        firstItem.price = data.close;
-                      }
-                    }
-                  });
-                  
-                  // 設置十字線位置
-                  if (firstItem.series) {
-                    subChart.setCrosshairPosition(
-                      firstItem.price,
-                      param.time,
-                      firstItem.series
-                    );
-                  }
-                }
-              }
-            });
-          }
-        }
-        
-        // 圖表響應式調整
-        const handleResize = () => {
-          if (chartContainerRef.current && chart) {
-            chart.applyOptions({ 
-              width: chartContainerRef.current.clientWidth 
-            });
-            
-            // 調整副圖表寬度
-            for (const element of chartElements) {
-              if (element.apiRef.current && element.ref.current) {
-                element.apiRef.current.applyOptions({
-                  width: element.ref.current.clientWidth
-                });
-              }
-            }
-          }
-        };
-        
-        // 初始調整
-        handleResize();
-        
-        // 監聽視窗大小變化
-        window.addEventListener('resize', handleResize);
-        
-        return () => {
-          window.removeEventListener('resize', handleResize);
-        };
-        
-      } catch (error) {
-        console.error("Failed to initialize chart:", error);
-        setChartError(error as Error);
-      }
-    };
-    
-    initializeCharts();
-    
-    // 清理函數
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.remove();
-        chartRef.current = null;
-      }
-      if (rsiChartApiRef.current) {
-        rsiChartApiRef.current.remove();
-        rsiChartApiRef.current = null;
-      }
-      if (macdChartApiRef.current) {
-        macdChartApiRef.current.remove();
-        macdChartApiRef.current = null;
-      }
-      if (volumeChartApiRef.current) {
-        volumeChartApiRef.current.remove();
-        volumeChartApiRef.current = null;
-      }
-    };
-  }, [isClient, settings, data]);
-  
-  // 如果不是客戶端環境，返回空白區域
-  if (!isClient) return <div className="w-full h-[600px] bg-[#0D1037]"></div>;
-  
-  // 如果發生錯誤，顯示錯誤訊息
-  if (chartError) {
-    return (
-      <div className="w-full h-[600px] bg-[#0D1037] rounded-lg overflow-hidden flex justify-center items-center">
-        <div className="text-white text-center p-8">
-          <h3 className="text-xl mb-2">圖表渲染錯誤</h3>
-          <p>{chartError.message}</p>
-          <button 
-            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded"
-            onClick={() => window.location.reload()}
-          >
-            重新載入
-          </button>
-        </div>
-      </div>
+    candleSeries.setData(candleData);
+
+    // SMA20
+    const sma20Series = mainChart.addSeries(LineSeries, {
+      color: '#FFA500',
+      lineWidth: 1,
+    });
+
+    sma20Series.setData(
+      chartData.map(d => ({
+        time: d.date as any,
+        value: d.sma20,
+      }))
     );
-  }
+
+    // SMA50
+    const sma50Series = mainChart.addSeries(LineSeries, {
+      color: '#00BFFF',
+      lineWidth: 1,
+    });
+
+    sma50Series.setData(
+      chartData.map(d => ({
+        time: d.date as any,
+        value: d.sma50,
+      }))
+    );
+    
+    // RSI 圖表配置
+    const rsiChart = createChart(rsiContainerRef.current, {
+      layout: {
+        background: { color: '#0D1037' },
+        textColor: 'white',
+      },
+      grid: {
+        vertLines: { color: '#444' },
+        horzLines: { color: '#444' },
+      },
+      width: rsiContainerRef.current.clientWidth,
+      height: 150,
+      timeScale: { 
+        borderColor: '#71649C',
+        visible: false, // 隱藏時間刻度
+      },
+      rightPriceScale: { 
+        borderColor: '#71649C',
+        scaleMargins: {
+          top: 0.1,
+          bottom: 0.1,
+        },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: {
+          width: 1,
+          color: '#aaa',
+          style: LineStyle.Solid,
+        },
+        horzLine: {
+          color: '#aaa',
+          style: LineStyle.Solid,
+          width: 1,
+        },
+      },
+    });
+    
+    rsiChartRef.current = rsiChart;
+    
+    // 添加 RSI 線條
+    const rsiSeries = rsiChart.addSeries(LineSeries, {
+      color: '#f44336',  // 紅色
+      lineWidth: 2,
+      title: 'RSI-14',
+    });
+    
+    // 設置 RSI 數據
+    rsiSeries.setData(
+      chartData.map(d => ({
+        time: d.date as any,
+        value: d.rsi || 50, // 使用數據中的 rsi 值，如果沒有則默認為 50
+      }))
+    );
+    
+    // 添加超買線 (70)
+    const overboughtSeries = rsiChart.addSeries(LineSeries, {
+      color: 'rgba(255, 255, 255, 0.5)',
+            lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      title: '超買(70)',
+    });
+    
+    // 添加超賣線 (30)
+    const oversoldSeries = rsiChart.addSeries(LineSeries, {
+      color: 'rgba(255, 255, 255, 0.5)',
+            lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+      title: '超賣(30)',
+    });
+    
+    // 設置超買超賣參考線數據
+    const timeRange = chartData.map(item => item.date as any);
+    if (timeRange.length > 0) {
+      overboughtSeries.setData([
+        { time: timeRange[0], value: 70 },
+        { time: timeRange[timeRange.length - 1], value: 70 }
+      ]);
+      
+      oversoldSeries.setData([
+        { time: timeRange[0], value: 30 },
+        { time: timeRange[timeRange.length - 1], value: 30 }
+      ]);
+    }
+    
+    // MACD 圖表配置
+    const macdChart = createChart(macdContainerRef.current, {
+      layout: {
+        background: { color: '#0D1037' },
+        textColor: 'white',
+      },
+      grid: {
+        vertLines: { color: '#444' },
+        horzLines: { color: '#444' },
+      },
+      width: macdContainerRef.current.clientWidth,
+      height: 150,
+      timeScale: { 
+        borderColor: '#71649C',
+        visible: false, // 隱藏時間刻度
+      },
+      rightPriceScale: { 
+        borderColor: '#71649C',
+        scaleMargins: {
+          top: 0.1,
+          bottom: 0.1,
+        },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: {
+          width: 1,
+          color: '#aaa',
+          style: LineStyle.Solid,
+        },
+        horzLine: {
+          color: '#aaa',
+          style: LineStyle.Solid,
+          width: 1,
+        },
+      },
+    });
+    
+    macdChartRef.current = macdChart;
+    
+    // 添加 MACD 線條
+    const macdSeries = macdChart.addSeries(LineSeries, {
+      color: '#2196F3',  // 藍色
+      lineWidth: 2,
+      title: 'MACD',
+    });
+    
+    // 添加 MACD 信號線
+    const signalSeries = macdChart.addSeries(LineSeries, {
+      color: '#FF9800',  // 橙色
+      lineWidth: 1,
+      title: 'Signal',
+    });
+    
+    // 添加 MACD 柱狀圖
+    const histogramSeries = macdChart.addSeries(HistogramSeries, {
+      title: 'Histogram',
+    });
+    
+    // 設置 MACD 數據
+    macdSeries.setData(
+      chartData.map(d => ({
+        time: d.date as any,
+        value: d.macd || 0,
+      }))
+    );
+    
+    // 設置信號線數據
+    signalSeries.setData(
+      chartData.map(d => ({
+        time: d.date as any,
+        value: d.macdSignal || 0,
+      }))
+    );
+    
+    // 設置柱狀圖數據
+    histogramSeries.setData(
+      chartData.map(d => {
+        const histValue = d.macdHistogram || 0;
+        return {
+          time: d.date as any,
+          value: histValue,
+          color: histValue >= 0 ? '#26A69A' : '#EF5350',  // 上漲綠色，下跌紅色
+        };
+      })
+    );
+    
+    // 添加零線
+    const zeroSeries = macdChart.addSeries(LineSeries, {
+      color: 'rgba(255, 255, 255, 0.3)',
+      lineWidth: 1,
+      lineStyle: LineStyle.Dashed,
+    });
+    
+    // 設置零線數據
+    zeroSeries.setData([
+      { time: timeRange[0], value: 0 },
+      { time: timeRange[timeRange.length - 1], value: 0 }
+    ]);
+    
+    // 成交量圖表配置
+    const volumeChart = createChart(volumeContainerRef.current, {
+      layout: {
+        background: { color: '#0D1037' },
+        textColor: 'white',
+      },
+      grid: {
+        vertLines: { color: '#444' },
+        horzLines: { color: '#444' },
+      },
+      width: volumeContainerRef.current.clientWidth,
+      height: 150,
+      timeScale: { 
+        borderColor: '#71649C',
+        visible: false, // 隱藏時間刻度
+      },
+      rightPriceScale: { 
+        borderColor: '#71649C',
+        scaleMargins: {
+          top: 0.1,
+          bottom: 0.1,
+        },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: {
+          width: 1,
+          color: '#aaa',
+          style: LineStyle.Solid,
+        },
+        horzLine: {
+          color: '#aaa',
+          style: LineStyle.Solid,
+          width: 1,
+        },
+      },
+    });
+    
+    volumeChartRef.current = volumeChart;
+    
+    // 添加成交量柱狀圖
+    const volumeSeries = volumeChart.addSeries(HistogramSeries, {
+      priceFormat: {
+        type: 'volume',
+      },
+      title: '成交量',
+    });
+    
+    // 設置成交量數據，漲跌用不同顏色
+    volumeSeries.setData(
+      chartData.map((d, index) => {
+        const isUp = index === 0 ? true : d.close >= chartData[index - 1].close;
+        return {
+          time: d.date as any,
+          value: d.volume,
+          color: isUp ? '#26A69A' : '#EF5350',  // 上漲綠色，下跌紅色
+        };
+      })
+    );
+    
+    // 同步所有圖表的時間軸範圍
+    mainChart.timeScale().subscribeVisibleLogicalRangeChange(timeRange => {
+      if (!timeRange) return;
+      
+      // 同步 RSI 圖表
+      if (rsiChartRef.current) {
+        rsiChartRef.current.timeScale().setVisibleLogicalRange(timeRange);
+      }
+      
+      // 同步 MACD 圖表
+      if (macdChartRef.current) {
+        macdChartRef.current.timeScale().setVisibleLogicalRange(timeRange);
+      }
+      
+      // 同步成交量圖表
+      if (volumeChartRef.current) {
+        volumeChartRef.current.timeScale().setVisibleLogicalRange(timeRange);
+      }
+    });
+    
+    // 響應式調整大小
+    const handleResize = () => {
+      if (chartContainerRef.current && chartRef.current) {
+        const width = chartContainerRef.current.clientWidth;
+        chartRef.current.applyOptions({ width });
+      }
+      
+      if (rsiContainerRef.current && rsiChartRef.current) {
+        const width = rsiContainerRef.current.clientWidth;
+        rsiChartRef.current.applyOptions({ width });
+      }
+      
+      if (macdContainerRef.current && macdChartRef.current) {
+        const width = macdContainerRef.current.clientWidth;
+        macdChartRef.current.applyOptions({ width });
+      }
+      
+      if (volumeContainerRef.current && volumeChartRef.current) {
+        const width = volumeContainerRef.current.clientWidth;
+        volumeChartRef.current.applyOptions({ width });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (chartRef.current) chartRef.current.remove();
+      if (rsiChartRef.current) rsiChartRef.current.remove();
+      if (macdChartRef.current) macdChartRef.current.remove();
+      if (volumeChartRef.current) volumeChartRef.current.remove();
+    };
+  }, []);
   
   return (
-    <div className="w-full bg-[#0D1037] rounded-lg overflow-hidden">
-      <div ref={chartContainerRef} className="w-full"></div>
+    <div className="w-full">
+      {/* 主圖表 */}
+      <div ref={chartContainerRef} className="w-full mb-1" style={{ height: '400px' }} />
       
-      {/* 副圖表區域 */}
-      {settings.subCharts.includes('RSI') && (
-        <div ref={rsiChartRef} className="w-full mt-1"></div>
-      )}
+      {/* RSI 技術指標圖表 */}
+      <div className="mb-1">
+        <div className="text-white text-sm pl-2 pb-1">RSI(14)</div>
+        <div ref={rsiContainerRef} className="w-full" style={{ height: '150px' }} />
+      </div>
       
-      {settings.subCharts.includes('MACD') && (
-        <div ref={macdChartRef} className="w-full mt-1"></div>
-      )}
+      {/* MACD 技術指標圖表 */}
+      <div className="mb-1">
+        <div className="text-white text-sm pl-2 pb-1">MACD(12,26,9)</div>
+        <div ref={macdContainerRef} className="w-full" style={{ height: '150px' }} />
+      </div>
       
-      {settings.subCharts.includes('Volume') && (
-        <div ref={volumeChartRef} className="w-full mt-1"></div>
-      )}
+      {/* 成交量圖表 */}
+      <div>
+        <div className="text-white text-sm pl-2 pb-1">成交量</div>
+        <div ref={volumeContainerRef} className="w-full" style={{ height: '150px' }} />
+      </div>
     </div>
   );
-};
-
-export default OverviewChart; 
+}
