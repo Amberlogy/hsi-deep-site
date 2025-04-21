@@ -1,11 +1,13 @@
 {
   "version": 2,
+  "buildCommand": "npm install --legacy-peer-deps && npm run build",
   "builds": [
     {
       "src": "package.json",
       "use": "@vercel/next",
       "config": {
-        "installCommand": "npm install --force"
+        "installCommand": "npm install --legacy-peer-deps",
+        "nodeVersion": "18.x"
       }
     }
   ],
