@@ -32,9 +32,32 @@ export default function OverviewChart({ data, settings }: OverviewChartProps = {
   const macdChartRef = useRef<IChartApi | null>(null);
   const volumeChartRef = useRef<IChartApi | null>(null);
 
+  // 清理圖表資源的函數
+  const cleanupCharts = () => {
+    if (chartRef.current) {
+      chartRef.current.remove();
+      chartRef.current = null;
+    }
+    if (rsiChartRef.current) {
+      rsiChartRef.current.remove();
+      rsiChartRef.current = null;
+    }
+    if (macdChartRef.current) {
+      macdChartRef.current.remove();
+      macdChartRef.current = null;
+    }
+    if (volumeChartRef.current) {
+      volumeChartRef.current.remove();
+      volumeChartRef.current = null;
+    }
+  };
+
   useEffect(() => {
     if (!chartContainerRef.current || !rsiContainerRef.current || 
         !macdContainerRef.current || !volumeContainerRef.current) return;
+
+    // 清理現有圖表資源，確保重新渲染時不會有殘留
+    cleanupCharts();
 
     const chartData = data || getFakeChartData();
     
@@ -73,6 +96,9 @@ export default function OverviewChart({ data, settings }: OverviewChartProps = {
         
     chartRef.current = mainChart;
 
+    // 根據 settings 選擇圖表類型 (如果有設置的話)
+    const chartType = settings?.chartType || 'candlestick';
+    
     // 陰陽燭圖
     const candleSeries = mainChart.addSeries(CandlestickSeries, {
       upColor: '#00ff00',
@@ -92,296 +118,321 @@ export default function OverviewChart({ data, settings }: OverviewChartProps = {
         
     candleSeries.setData(candleData);
 
-    // SMA20
-    const sma20Series = mainChart.addSeries(LineSeries, {
-      color: '#FFA500',
-      lineWidth: 1,
-    });
+    // 如果 settings 中指定了 SMA 指標或沒有指定主指標，則顯示 SMA
+    if (!settings?.mainIndicator || settings.mainIndicator === 'sma') {
+      // SMA20
+      const sma20Series = mainChart.addSeries(LineSeries, {
+        color: '#FFA500',
+        lineWidth: 1,
+      });
 
-    sma20Series.setData(
-      chartData.map(d => ({
-        time: d.date as any,
-        value: d.sma20,
-      }))
-    );
+      sma20Series.setData(
+        chartData.map(d => ({
+          time: d.date as any,
+          value: d.sma20,
+        }))
+      );
 
-    // SMA50
-    const sma50Series = mainChart.addSeries(LineSeries, {
-      color: '#00BFFF',
-      lineWidth: 1,
-    });
+      // SMA50
+      const sma50Series = mainChart.addSeries(LineSeries, {
+        color: '#00BFFF',
+        lineWidth: 1,
+      });
 
-    sma50Series.setData(
-      chartData.map(d => ({
-        time: d.date as any,
-        value: d.sma50,
-      }))
-    );
-    
-    // RSI 圖表配置
-    const rsiChart = createChart(rsiContainerRef.current, {
-      layout: {
-        background: { color: '#0D1037' },
-        textColor: 'white',
-      },
-      grid: {
-        vertLines: { color: '#444' },
-        horzLines: { color: '#444' },
-      },
-      width: rsiContainerRef.current.clientWidth,
-      height: 150,
-      timeScale: { 
-        borderColor: '#71649C',
-        visible: false, // 隱藏時間刻度
-      },
-      rightPriceScale: { 
-        borderColor: '#71649C',
-        scaleMargins: {
-          top: 0.1,
-          bottom: 0.1,
-        },
-      },
-      crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: {
-          width: 1,
-          color: '#aaa',
-          style: LineStyle.Solid,
-        },
-        horzLine: {
-          color: '#aaa',
-          style: LineStyle.Solid,
-          width: 1,
-        },
-      },
-    });
-    
-    rsiChartRef.current = rsiChart;
-    
-    // 添加 RSI 線條
-    const rsiSeries = rsiChart.addSeries(LineSeries, {
-      color: '#f44336',  // 紅色
-      lineWidth: 2,
-      title: 'RSI-14',
-    });
-    
-    // 設置 RSI 數據
-    rsiSeries.setData(
-      chartData.map(d => ({
-        time: d.date as any,
-        value: d.rsi || 50, // 使用數據中的 rsi 值，如果沒有則默認為 50
-      }))
-    );
-    
-    // 添加超買線 (70)
-    const overboughtSeries = rsiChart.addSeries(LineSeries, {
-      color: 'rgba(255, 255, 255, 0.5)',
-            lineWidth: 1,
-      lineStyle: LineStyle.Dashed,
-      title: '超買(70)',
-    });
-    
-    // 添加超賣線 (30)
-    const oversoldSeries = rsiChart.addSeries(LineSeries, {
-      color: 'rgba(255, 255, 255, 0.5)',
-            lineWidth: 1,
-      lineStyle: LineStyle.Dashed,
-      title: '超賣(30)',
-    });
-    
-    // 設置超買超賣參考線數據
-    const timeRange = chartData.map(item => item.date as any);
-    if (timeRange.length > 0) {
-      overboughtSeries.setData([
-        { time: timeRange[0], value: 70 },
-        { time: timeRange[timeRange.length - 1], value: 70 }
-      ]);
-      
-      oversoldSeries.setData([
-        { time: timeRange[0], value: 30 },
-        { time: timeRange[timeRange.length - 1], value: 30 }
-      ]);
+      sma50Series.setData(
+        chartData.map(d => ({
+          time: d.date as any,
+          value: d.sma50,
+        }))
+      );
     }
     
-    // MACD 圖表配置
-    const macdChart = createChart(macdContainerRef.current, {
-      layout: {
-        background: { color: '#0D1037' },
-        textColor: 'white',
-      },
-      grid: {
-        vertLines: { color: '#444' },
-        horzLines: { color: '#444' },
-      },
-      width: macdContainerRef.current.clientWidth,
-      height: 150,
-      timeScale: { 
-        borderColor: '#71649C',
-        visible: false, // 隱藏時間刻度
-      },
-      rightPriceScale: { 
-        borderColor: '#71649C',
-        scaleMargins: {
-          top: 0.1,
-          bottom: 0.1,
+    // 檢查是否需要顯示 RSI 指標
+    const showRSI = !settings?.subCharts || settings.subCharts.includes('RSI');
+    
+    if (showRSI) {
+      // RSI 圖表配置
+      const rsiChart = createChart(rsiContainerRef.current, {
+        layout: {
+          background: { color: '#0D1037' },
+          textColor: 'white',
         },
-      },
-      crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: {
-          width: 1,
-          color: '#aaa',
-          style: LineStyle.Solid,
+        grid: {
+          vertLines: { color: '#444' },
+          horzLines: { color: '#444' },
         },
-        horzLine: {
-          color: '#aaa',
-          style: LineStyle.Solid,
-          width: 1,
+        width: rsiContainerRef.current.clientWidth,
+        height: 150,
+        timeScale: { 
+          borderColor: '#71649C',
+          visible: false, // 隱藏時間刻度
         },
-      },
-    });
-    
-    macdChartRef.current = macdChart;
-    
-    // 添加 MACD 線條
-    const macdSeries = macdChart.addSeries(LineSeries, {
-      color: '#2196F3',  // 藍色
-      lineWidth: 2,
-      title: 'MACD',
-    });
-    
-    // 添加 MACD 信號線
-    const signalSeries = macdChart.addSeries(LineSeries, {
-      color: '#FF9800',  // 橙色
-      lineWidth: 1,
-      title: 'Signal',
-    });
-    
-    // 添加 MACD 柱狀圖
-    const histogramSeries = macdChart.addSeries(HistogramSeries, {
-      title: 'Histogram',
-    });
-    
-    // 設置 MACD 數據
-    macdSeries.setData(
-      chartData.map(d => ({
-        time: d.date as any,
-        value: d.macd || 0,
-      }))
-    );
-    
-    // 設置信號線數據
-    signalSeries.setData(
-      chartData.map(d => ({
-        time: d.date as any,
-        value: d.macdSignal || 0,
-      }))
-    );
-    
-    // 設置柱狀圖數據
-    histogramSeries.setData(
-      chartData.map(d => {
-        const histValue = d.macdHistogram || 0;
-        return {
+        rightPriceScale: { 
+          borderColor: '#71649C',
+          scaleMargins: {
+            top: 0.1,
+            bottom: 0.1,
+          },
+        },
+        crosshair: {
+          mode: CrosshairMode.Normal,
+          vertLine: {
+            width: 1,
+            color: '#aaa',
+            style: LineStyle.Solid,
+          },
+          horzLine: {
+            color: '#aaa',
+            style: LineStyle.Solid,
+            width: 1,
+          },
+        },
+      });
+      
+      rsiChartRef.current = rsiChart;
+      
+      // 添加 RSI 線條
+      const rsiSeries = rsiChart.addSeries(LineSeries, {
+        color: '#f44336',  // 紅色
+        lineWidth: 2,
+        title: 'RSI-14',
+      });
+      
+      // 設置 RSI 數據
+      rsiSeries.setData(
+        chartData.map(d => ({
           time: d.date as any,
-          value: histValue,
-          color: histValue >= 0 ? '#26A69A' : '#EF5350',  // 上漲綠色，下跌紅色
-        };
-      })
-    );
+          value: d.rsi || 50, // 使用數據中的 rsi 值，如果沒有則默認為 50
+        }))
+      );
+      
+      // 添加超買線 (70)
+      const overboughtSeries = rsiChart.addSeries(LineSeries, {
+        color: 'rgba(255, 255, 255, 0.5)',
+              lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        title: '超買(70)',
+      });
+      
+      // 添加超賣線 (30)
+      const oversoldSeries = rsiChart.addSeries(LineSeries, {
+        color: 'rgba(255, 255, 255, 0.5)',
+              lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        title: '超賣(30)',
+      });
+      
+      // 設置超買超賣參考線數據
+      const timeRange = chartData.map(item => item.date as any);
+      if (timeRange.length > 0) {
+        overboughtSeries.setData([
+          { time: timeRange[0], value: 70 },
+          { time: timeRange[timeRange.length - 1], value: 70 }
+        ]);
+        
+        oversoldSeries.setData([
+          { time: timeRange[0], value: 30 },
+          { time: timeRange[timeRange.length - 1], value: 30 }
+        ]);
+      }
+    }
     
-    // 添加零線
-    const zeroSeries = macdChart.addSeries(LineSeries, {
-      color: 'rgba(255, 255, 255, 0.3)',
-      lineWidth: 1,
-      lineStyle: LineStyle.Dashed,
-    });
+    // 檢查是否需要顯示 MACD 指標
+    const showMACD = !settings?.subCharts || settings.subCharts.includes('MACD');
     
-    // 設置零線數據
-    zeroSeries.setData([
-      { time: timeRange[0], value: 0 },
-      { time: timeRange[timeRange.length - 1], value: 0 }
-    ]);
-    
-    // 成交量圖表配置
-    const volumeChart = createChart(volumeContainerRef.current, {
-      layout: {
-        background: { color: '#0D1037' },
-        textColor: 'white',
-      },
-      grid: {
-        vertLines: { color: '#444' },
-        horzLines: { color: '#444' },
-      },
-      width: volumeContainerRef.current.clientWidth,
-      height: 150,
-      timeScale: { 
-        borderColor: '#71649C',
-        visible: false, // 隱藏時間刻度
-      },
-      rightPriceScale: { 
-        borderColor: '#71649C',
-        scaleMargins: {
-          top: 0.1,
-          bottom: 0.1,
+    if (showMACD) {
+      // MACD 圖表配置
+      const macdChart = createChart(macdContainerRef.current, {
+        layout: {
+          background: { color: '#0D1037' },
+          textColor: 'white',
         },
-      },
-      crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: {
-          width: 1,
-          color: '#aaa',
-          style: LineStyle.Solid,
+        grid: {
+          vertLines: { color: '#444' },
+          horzLines: { color: '#444' },
         },
-        horzLine: {
-          color: '#aaa',
-          style: LineStyle.Solid,
-          width: 1,
+        width: macdContainerRef.current.clientWidth,
+        height: 150,
+        timeScale: { 
+          borderColor: '#71649C',
+          visible: false, // 隱藏時間刻度
         },
-      },
-    });
-    
-    volumeChartRef.current = volumeChart;
-    
-    // 添加成交量柱狀圖
-    const volumeSeries = volumeChart.addSeries(HistogramSeries, {
-      priceFormat: {
-        type: 'volume',
-      },
-      title: '成交量',
-    });
-    
-    // 設置成交量數據，漲跌用不同顏色
-    volumeSeries.setData(
-      chartData.map((d, index) => {
-        const isUp = index === 0 ? true : d.close >= chartData[index - 1].close;
-        return {
+        rightPriceScale: { 
+          borderColor: '#71649C',
+          scaleMargins: {
+            top: 0.1,
+            bottom: 0.1,
+          },
+        },
+        crosshair: {
+          mode: CrosshairMode.Normal,
+          vertLine: {
+            width: 1,
+            color: '#aaa',
+            style: LineStyle.Solid,
+          },
+          horzLine: {
+            color: '#aaa',
+            style: LineStyle.Solid,
+            width: 1,
+          },
+        },
+      });
+      
+      macdChartRef.current = macdChart;
+      
+      // 添加 MACD 線條
+      const macdSeries = macdChart.addSeries(LineSeries, {
+        color: '#2196F3',  // 藍色
+        lineWidth: 2,
+        title: 'MACD',
+      });
+      
+      // 添加 MACD 信號線
+      const signalSeries = macdChart.addSeries(LineSeries, {
+        color: '#FF9800',  // 橙色
+        lineWidth: 1,
+        title: 'Signal',
+      });
+      
+      // 添加 MACD 柱狀圖
+      const histogramSeries = macdChart.addSeries(HistogramSeries, {
+        title: 'Histogram',
+      });
+      
+      // 設置 MACD 數據
+      macdSeries.setData(
+        chartData.map(d => ({
           time: d.date as any,
-          value: d.volume,
-          color: isUp ? '#26A69A' : '#EF5350',  // 上漲綠色，下跌紅色
-        };
-      })
-    );
+          value: d.macd || 0,
+        }))
+      );
+      
+      // 設置信號線數據
+      signalSeries.setData(
+        chartData.map(d => ({
+          time: d.date as any,
+          value: d.macdSignal || 0,
+        }))
+      );
+      
+      // 設置柱狀圖數據
+      histogramSeries.setData(
+        chartData.map(d => {
+          const histValue = d.macdHistogram || 0;
+          return {
+            time: d.date as any,
+            value: histValue,
+            color: histValue >= 0 ? '#26A69A' : '#EF5350',  // 上漲綠色，下跌紅色
+          };
+        })
+      );
+      
+      // 取得時間範圍用於零線
+      const timeRange = chartData.map(item => item.date as any);
+      
+      // 添加零線
+      const zeroSeries = macdChart.addSeries(LineSeries, {
+        color: 'rgba(255, 255, 255, 0.3)',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+      });
+      
+      // 設置零線數據
+      if (timeRange.length > 0) {
+        zeroSeries.setData([
+          { time: timeRange[0], value: 0 },
+          { time: timeRange[timeRange.length - 1], value: 0 }
+        ]);
+      }
+    }
+    
+    // 檢查是否需要顯示成交量指標
+    const showVolume = !settings?.subCharts || settings.subCharts.includes('Volume');
+    
+    if (showVolume) {
+      // 成交量圖表配置
+      const volumeChart = createChart(volumeContainerRef.current, {
+        layout: {
+          background: { color: '#0D1037' },
+          textColor: 'white',
+        },
+        grid: {
+          vertLines: { color: '#444' },
+          horzLines: { color: '#444' },
+        },
+        width: volumeContainerRef.current.clientWidth,
+        height: 150,
+        timeScale: { 
+          borderColor: '#71649C',
+          visible: false, // 隱藏時間刻度
+        },
+        rightPriceScale: { 
+          borderColor: '#71649C',
+          scaleMargins: {
+            top: 0.1,
+            bottom: 0.1,
+          },
+        },
+        crosshair: {
+          mode: CrosshairMode.Normal,
+          vertLine: {
+            width: 1,
+            color: '#aaa',
+            style: LineStyle.Solid,
+          },
+          horzLine: {
+            color: '#aaa',
+            style: LineStyle.Solid,
+            width: 1,
+          },
+        },
+      });
+      
+      volumeChartRef.current = volumeChart;
+      
+      // 添加成交量柱狀圖
+      const volumeSeries = volumeChart.addSeries(HistogramSeries, {
+        priceFormat: {
+          type: 'volume',
+        },
+        title: '成交量',
+      });
+      
+      // 設置成交量數據，漲跌用不同顏色
+      volumeSeries.setData(
+        chartData.map((d, index) => {
+          const isUp = index === 0 ? true : d.close >= chartData[index - 1].close;
+          return {
+            time: d.date as any,
+            value: d.volume,
+            color: isUp ? '#26A69A' : '#EF5350',  // 上漲綠色，下跌紅色
+          };
+        })
+      );
+    }
     
     // 同步所有圖表的時間軸範圍
-    mainChart.timeScale().subscribeVisibleLogicalRangeChange(timeRange => {
-      if (!timeRange) return;
-      
-      // 同步 RSI 圖表
-      if (rsiChartRef.current) {
-        rsiChartRef.current.timeScale().setVisibleLogicalRange(timeRange);
-      }
-      
-      // 同步 MACD 圖表
-      if (macdChartRef.current) {
-        macdChartRef.current.timeScale().setVisibleLogicalRange(timeRange);
-      }
-      
-      // 同步成交量圖表
-      if (volumeChartRef.current) {
-        volumeChartRef.current.timeScale().setVisibleLogicalRange(timeRange);
-      }
-    });
+    if (chartRef.current) {
+      chartRef.current.timeScale().subscribeVisibleLogicalRangeChange(timeRange => {
+        if (!timeRange) return;
+        
+        // 同步 RSI 圖表
+        if (rsiChartRef.current) {
+          rsiChartRef.current.timeScale().setVisibleLogicalRange(timeRange);
+        }
+        
+        // 同步 MACD 圖表
+        if (macdChartRef.current) {
+          macdChartRef.current.timeScale().setVisibleLogicalRange(timeRange);
+        }
+        
+        // 同步成交量圖表
+        if (volumeChartRef.current) {
+          volumeChartRef.current.timeScale().setVisibleLogicalRange(timeRange);
+        }
+      });
+    }
     
     // 響應式調整大小
     const handleResize = () => {
@@ -410,12 +461,14 @@ export default function OverviewChart({ data, settings }: OverviewChartProps = {
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (chartRef.current) chartRef.current.remove();
-      if (rsiChartRef.current) rsiChartRef.current.remove();
-      if (macdChartRef.current) macdChartRef.current.remove();
-      if (volumeChartRef.current) volumeChartRef.current.remove();
+      cleanupCharts();
     };
   }, [data, settings]);
+  
+  // 根據設置顯示或隱藏相應的指標圖表
+  const showRSI = !settings?.subCharts || settings.subCharts.includes('RSI');
+  const showMACD = !settings?.subCharts || settings.subCharts.includes('MACD');
+  const showVolume = !settings?.subCharts || settings.subCharts.includes('Volume');
   
   return (
     <div className="w-full">
@@ -423,22 +476,28 @@ export default function OverviewChart({ data, settings }: OverviewChartProps = {
       <div ref={chartContainerRef} className="w-full mb-1" style={{ height: '400px' }} />
       
       {/* RSI 技術指標圖表 */}
-      <div className="mb-1">
-        <div className="text-white text-sm pl-2 pb-1">RSI(14)</div>
-        <div ref={rsiContainerRef} className="w-full" style={{ height: '150px' }} />
-      </div>
+      {showRSI && (
+        <div className="mb-1">
+          <div className="text-white text-sm pl-2 pb-1">RSI(14)</div>
+          <div ref={rsiContainerRef} className="w-full" style={{ height: '150px' }} />
+        </div>
+      )}
       
       {/* MACD 技術指標圖表 */}
-      <div className="mb-1">
-        <div className="text-white text-sm pl-2 pb-1">MACD(12,26,9)</div>
-        <div ref={macdContainerRef} className="w-full" style={{ height: '150px' }} />
-      </div>
+      {showMACD && (
+        <div className="mb-1">
+          <div className="text-white text-sm pl-2 pb-1">MACD(12,26,9)</div>
+          <div ref={macdContainerRef} className="w-full" style={{ height: '150px' }} />
+        </div>
+      )}
       
       {/* 成交量圖表 */}
-      <div>
-        <div className="text-white text-sm pl-2 pb-1">成交量</div>
-        <div ref={volumeContainerRef} className="w-full" style={{ height: '150px' }} />
-      </div>
+      {showVolume && (
+        <div>
+          <div className="text-white text-sm pl-2 pb-1">成交量</div>
+          <div ref={volumeContainerRef} className="w-full" style={{ height: '150px' }} />
+        </div>
+      )}
     </div>
   );
 }
