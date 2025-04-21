@@ -415,7 +415,7 @@ export default function OverviewChart({ data, settings }: OverviewChartProps = {
       if (macdChartRef.current) macdChartRef.current.remove();
       if (volumeChartRef.current) volumeChartRef.current.remove();
     };
-  }, []);
+  }, [data, settings]);
   
   return (
     <div className="w-full">
