@@ -1,4 +1,4 @@
-name: 部署到 Vercel
+name: Deploy to Vercel
 
 on:
   push:
@@ -7,28 +7,28 @@ on:
 
 jobs:
   deploy:
-    name: 自動部署到 Vercel
+    name: Auto Deploy to Vercel
     runs-on: ubuntu-latest
 
     steps:
-      - name: 檢出程式碼
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: 設定 Node.js 環境
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      - name: 安裝相依套件
+      - name: Install dependencies
         run: npm install
 
-      - name: 建置專案
+      - name: Build project
         run: npm run build
 
-      - name: 安裝 Vercel CLI
+      - name: Install Vercel CLI
         run: npm install -g vercel
 
-      - name: 部署到 Vercel
+      - name: Deploy to Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: vercel --prod --confirm --token $VERCEL_TOKEN
