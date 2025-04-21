@@ -1,8 +1,3 @@
-# 模組: GitHub Actions 自動部署模組
-# 輸入: push 事件 (main 分支)
-# 輸出: 專案部署到 Vercel production 環境
-# 測試方式: 將程式碼推送至 main 分支後，確認 Actions 是否執行成功並檢查網站是否更新
-
 name: 部署到 Vercel
 
 on:
@@ -36,4 +31,4 @@ jobs:
       - name: 部署到 Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: vercel --prod --confirm --token $VERCEL_TOKEN 
+        run: vercel --prod --confirm --token $VERCEL_TOKEN
